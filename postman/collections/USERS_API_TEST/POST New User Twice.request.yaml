@@ -1,0 +1,15 @@
+$kind: http-request
+url: http://localhost:5000/api/kullanicilar
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"adSoyad\": \"Test Kullanıcısı\",\r
+
+    \    \"eposta\": \"test@example.com\",\r
+
+    \    \"sifreHash\": \"test_hash_123\"\r
+
+    }"
+order: 3732169975288012

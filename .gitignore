@@ -1,0 +1,17 @@
+# Derleme ve Çalışma Zamanı Klasörleri
+bin/
+obj/
+
+
+# Kullanıcıya Özel Ayarlar
+appsettings.Development.json
+*.user
+
+# İşletim Sistemi Dosyaları
+.DS_Store
+Thumbs.db
+
+# Şifrelerin olduğu dosyaları GitHub'a GÖNDERME
+appsettings.json
+
+

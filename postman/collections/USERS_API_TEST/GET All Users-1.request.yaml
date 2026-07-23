@@ -1,0 +1,5 @@
+$kind: http-request
+name: GET All Users
+url: http://localhost:5000/api/kullanicilar
+method: GET
+order: 1784631627205

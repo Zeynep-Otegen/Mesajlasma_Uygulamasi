@@ -1,0 +1,16 @@
+$kind: http-request
+name: Register_Test
+url: http://localhost:5000/api/auth/register
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"adSoyad\": \"Zeynep\",\r
+
+    \    \"eposta\": \"zeynep.test@example.com\",\r
+
+    \    \"sifreHash\": \"StajParolasi123!\" \r
+
+    }"
+order: 4483253336968435

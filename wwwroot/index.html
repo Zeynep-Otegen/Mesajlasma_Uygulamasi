@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>SignalR Chat Test</title>
+    <!-- Microsoft SignalR JavaScript Kütüphanesi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+</head>
+<body style="font-family: Arial, sans-serif; padding: 20px;">
+    <h2>SignalR Güvenli Chat Testi</h2>
+    
+    <!-- Token Yapıştırma Alanı -->
+    <div style="margin-bottom: 20px; padding: 10px; background-color: #f0f0f0;">
+        <label><b>Postman'den Alınan Token:</b></label><br>
+        <textarea id="tokenInput" rows="3" style="width: 100%; margin-top: 5px;" placeholder="eyJhbG..."></textarea>
+        <button onclick="baglantiyiBaslat()">Tünele Bağlan</button>
+    </div>
+
+    <div id="status" style="color: red; font-weight: bold; margin-bottom: 10px;">Bağlı Değil</div>
+
+    <div style="margin-bottom: 10px;">
+        <label>Sohbet Odası ID:</label>
+        <input type="number" id="sohbetId" value="1" style="width: 50px;">
+    </div>
+
+    <input type="text" id="gonderen" placeholder="Adınız" value="Zeynep">
+    <input type="text" id="mesaj" placeholder="Mesajınız..." style="width: 300px;">
+    <button onclick="mesajGonder()">Gönder</button>
+
+    <h3>Gelen Mesajlar:</h3>
+    <ul id="mesajListesi"></ul>
+
+    <script>
+        let connection;
+
+        function baglantiyiBaslat() {
+            const token = document.getElementById("tokenInput").value;
+            if (!token) { alert("Lütfen önce token yapıştırın!"); return; }
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/chathub", { accessTokenFactory: () => token })
+                .build();
+
+            connection.on("YeniMesajAlindi", (gonderen, mesaj) => {
+                const li = document.createElement("li");
+                li.innerHTML = `<b>${gonderen}:</b> ${mesaj}`;
+                document.getElementById("mesajListesi").appendChild(li);
+            });
+
+            // GÜNCELLENEN KISIM: Bağlantı açıldığında odaya katılma isteği gönder
+            connection.start()
+                .then(() => {
+                    document.getElementById("status").innerText = "Kilit Açıldı! SignalR Bağlantısı Başarılı!";
+                    document.getElementById("status").style.color = "green";
+                    
+                    // Ekrandaki Sohbet ID'sini al ve C# tarafındaki OdayaKatil metodunu çalıştır
+                    const seciliOda = parseInt(document.getElementById("sohbetId").value);
+                    connection.invoke("OdayaKatil", seciliOda);
+                })
+                .catch(err => {
+                    console.error("Bağlantı Hatası: ", err);
+                    alert("Bağlantı reddedildi! Token geçersiz veya süresi dolmuş olabilir.");
+                });
+        }
+
+        function mesajGonder() {
+            if(!connection || connection.state !== "Connected") {
+                alert("Önce tünele bağlanmalısınız!");
+                return;
+            }
+
+            const gonderen = document.getElementById("gonderen").value;
+            const mesaj = document.getElementById("mesaj").value;
+            
+            // GÜNCELLENEN KISIM: Sabit "1" yerine ekrandaki SohbetId'yi al
+            const sohbetId = parseInt(document.getElementById("sohbetId").value); 
+            const gonderenId = 1; // Şimdilik test için gönderen sabit
+
+            connection.invoke("MesajGonder", sohbetId, gonderenId, gonderen, mesaj);
+            document.getElementById("mesaj").value = "";
+        }
+    </script>
+</body>
+</html>
