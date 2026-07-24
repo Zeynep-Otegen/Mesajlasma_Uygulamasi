@@ -428,4 +428,61 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e.key === "Enter") mesajGonder();
         });
     }
-});
+    // ... YUKARIDAKİ KODLARIN AYNEN DURUYOR ...
+
+    // Buton veya Enter ile Göndermeyi Tetikle
+    if (sendBtn) {
+        sendBtn.addEventListener("click", mesajGonder);
+    }
+
+    if (messageInput) {
+        messageInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") mesajGonder();
+        });
+    }
+
+    // =========================================================
+    // --- YENİ EKLENEN: SIGNALR GERÇEK ZAMANLI BAĞLANTI ---
+    // =========================================================
+    
+    // 1. Hub Bağlantısını Kur
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/chathub", { // C# tarafındaki hub rotan neyse buraya o yazılmalı
+            accessTokenFactory: () => token 
+        })
+        .withAutomaticReconnect()
+        .build();
+
+    // 2. Sunucudan Gelen "YeniMesajGeldi" Sinyalini Dinle
+    connection.on("YeniMesajGeldi", (mesaj) => {
+        // Gelen mesajı atan kişi ben miyim kontrol et
+        const gonderenId = mesaj.gonderenid || mesaj.Gonderenid || mesaj.kullaniciid;
+        const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
+
+        // Mesaj, şu an ekranda açık olan sohbete aitse VE atan kişi ben DEĞİLSEM ekrana bas
+        // (Çünkü kendi mesajımı 'mesajGonder' içinde zaten ekrana basıyorum)
+        if (mesaj.sohbetid == aktifSohbetId && !benMiyim) {
+            
+            const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
+            const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
+            
+            let saatString = "";
+            if (hamTarih) {
+                const tarihObje = new Date(hamTarih);
+                saatString = tarihObje.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+                saatString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            
+            const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
+            
+            ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi);
+        }
+    });
+
+    // 3. Bağlantıyı Başlat
+    connection.start()
+        .then(() => console.log("✅ SignalR Başarıyla Bağlandı!"))
+        .catch(err => console.error("🚨 SignalR Bağlantı Hatası: ", err));
+
+}); 

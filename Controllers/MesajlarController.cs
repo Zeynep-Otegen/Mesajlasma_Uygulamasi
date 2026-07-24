@@ -4,6 +4,8 @@ using STAJ1.Models;
 using STAJ1.Services;
 using System;
 using System.Linq; // LINQ sorguları için eklendi
+using Microsoft.AspNetCore.SignalR; // SignalR için eklendi
+using STAJ1.Hubs;
 
 namespace STAJ1.Controllers;
 
@@ -14,12 +16,14 @@ public class MesajlarController : ControllerBase
 {
     private readonly IMesajService _mesajService;
     private readonly IKullaniciService _kullaniciService; // İsimleri bulmak için eklendi
+    private readonly IHubContext<ChatHub> _hubContext;
 
     // Constructor güncellendi
-    public MesajlarController(IMesajService mesajService, IKullaniciService kullaniciService)
+   public MesajlarController(IMesajService mesajService, IKullaniciService kullaniciService, IHubContext<ChatHub> hubContext)
     {
         _mesajService = mesajService;
         _kullaniciService = kullaniciService;
+        _hubContext = hubContext;
     }
 
     [HttpGet("sohbet/{sohbetId}")]
@@ -50,12 +54,31 @@ public class MesajlarController : ControllerBase
         }
     }
 
-    [HttpPost]
-    public IActionResult MesajGonder([FromBody] Mesaj yeniMesaj)
+   [HttpPost]
+    public async Task<IActionResult> MesajGonder([FromBody] Mesaj yeniMesaj) 
     {
         try
         {
+           
             _mesajService.MesajGonder(yeniMesaj);
+
+          
+            var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
+            var gonderenKisi = tumKullanicilar.FirstOrDefault(k => k.Id == yeniMesaj.gonderenid);
+            var gonderenAd = gonderenKisi != null ? gonderenKisi.AdSoyad : "Bilinmeyen";
+
+            var yayinlanacakMesaj = new {
+                id = yeniMesaj.id,
+                sohbetid = yeniMesaj.sohbetid,
+                gonderenid = yeniMesaj.gonderenid,
+                icerik = yeniMesaj.icerik,
+                gondermeTarihi = yeniMesaj.gondermeTarihi,
+                gonderenAd = gonderenAd // İsim bilgisini de SignalR ile yolluyoruz ki ekrana yazılabilsin
+            };
+
+            
+            await _hubContext.Clients.All.SendAsync("YeniMesajGeldi", yayinlanacakMesaj);
+
             return Ok("Mesaj başarıyla gönderildi.");
         }
         catch (Exception ex)
