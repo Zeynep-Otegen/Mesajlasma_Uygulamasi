@@ -1,0 +1,341 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #d1d7db; /* WhatsApp arka plan grisi */
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 1600px;
+    height: 100vh;
+    background-color: #ffffff;
+    display: flex;
+    box-shadow: 0 1px 1px 0 rgba(0,0,0,0.06), 0 2px 5px 0 rgba(0,0,0,0.2);
+}
+
+/* --- SOL MENÜ (SİDEBAR) --- */
+.sidebar {
+    width: 30%;
+    min-width: 300px;
+    border-right: 1px solid #d1d7db;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    background-color: #f0f2f5;
+    height: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+}
+
+.profile-pic {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.header-icons i {
+    color: #54656f;
+    font-size: 20px;
+    margin-left: 20px;
+    cursor: pointer;
+}
+
+.search-bar {
+    background-color: #ffffff;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.search-input {
+    background-color: #f0f2f5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    height: 35px;
+}
+
+.search-input i {
+    color: #54656f;
+    font-size: 14px;
+    margin-right: 15px;
+}
+
+.search-input input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+}
+
+.chat-list {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #ffffff;
+}
+
+.chat-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.chat-item:hover, .chat-item.active {
+    background-color: #f5f6f6;
+}
+
+.chat-details {
+    margin-left: 15px;
+    width: 100%;
+}
+
+.chat-title {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
+}
+
+.chat-title h4 {
+    font-weight: 400;
+    color: #111b21;
+}
+
+.chat-title .time {
+    font-size: 12px;
+    color: #667781;
+}
+
+.chat-last-message p {
+    font-size: 13px;
+    color: #667781;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- SAĞ TARAF (MESAJLAŞMA) --- */
+.main-chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-info {
+    display: flex;
+    align-items: center;
+}
+
+.chat-info h4 {
+    margin-left: 15px;
+    font-weight: 500;
+}
+
+/* Mesaj Kapsayıcısı */
+.messages-container {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    gap: 10px;
+    overflow-y: auto;
+    background-color: #efeae2; /* WhatsApp arka plan rengi */
+}
+
+/* Genel Mesaj Kutusu */
+.message {
+    max-width: 65%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    position: relative;
+    word-wrap: break-word;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+}
+
+/* Kendi Attığım Mesajlar (Sağda) */
+.message.sent {
+    background-color: #dcf8c6;
+    align-self: flex-end;
+    border-top-right-radius: 0;
+}
+
+/* Karşıdan Gelen Mesajlar (Solda) */
+.message.received {
+    background-color: #ffffff;
+    align-self: flex-start;
+    border-top-left-radius: 0;
+}
+
+/* Mesaj Saati */
+.msg-time {
+    font-size: 10px;
+    color: #888;
+    float: right;
+    margin-top: 5px;
+    margin-left: 15px;
+}
+
+/* --- MESAJ YAZMA ALANI --- */
+.input-area {
+    background-color: #f0f2f5;
+    height: 62px;
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+}
+
+.input-area i {
+    color: #54656f;
+    font-size: 24px;
+    margin-right: 20px;
+    cursor: pointer;
+}
+
+.input-area input {
+    flex: 1;
+    height: 42px;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 15px;
+    outline: none;
+}
+
+.input-area button {
+    background: transparent;
+    border: none;
+    margin-left: 20px;
+    cursor: pointer;
+}
+
+.input-area button i {
+    margin: 0;
+}
+
+/* --- MODAL (AÇILIR PENCERE) TASARIMI --- */
+.modal {
+    display: none; /* Varsayılan olarak gizli */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.7); /* WhatsApp tarzı beyazımsı arka plan */
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 10px;
+    width: 350px;
+    box-shadow: 0 17px 50px 0 rgba(11,20,26,.19), 0 12px 15px 0 rgba(11,20,26,.24);
+    position: relative;
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    color: #54656f;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.input-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group label {
+    font-size: 14px;
+    color: #008069; /* WhatsApp yeşili vurgu */
+    margin-bottom: 5px;
+}
+
+.input-group input {
+    padding: 10px;
+    border: none;
+    border-bottom: 2px solid #008069;
+    outline: none;
+    font-size: 15px;
+    background-color: #f0f2f5;
+    border-radius: 5px 5px 0 0;
+}
+
+.save-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #008069;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 15px;
+    margin-top: 10px;
+}
+
+.save-btn:hover {
+    background-color: #016b58;
+}
+/* Modal Arka Planı (Sayfayı karartır) */
+.modal-gizli { display: none; }
+.modal-acik {
+    display: flex; position: fixed; top: 0; left: 0; 
+    width: 100%; height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    justify-content: center; align-items: center;
+    z-index: 1000;
+}
+
+/* Modal Kutusu */
+.modal-icerik {
+    background: white; padding: 20px; border-radius: 10px;
+    width: 400px; max-width: 90%;
+    display: flex; flex-direction: column; gap: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+#modal-kapat { 
+    align-self: flex-end; cursor: pointer; 
+    font-size: 24px; font-weight: bold; color: #555; 
+}
+
+#modal-kapat:hover { color: red; }
+
+/* Kullanıcı Listesi Kaydırma Çubuğu */
+.kullanici-listesi-container {
+    max-height: 200px; overflow-y: auto;
+    border: 1px solid #ddd; padding: 10px; border-radius: 5px;
+}
+
+.kullanici-item { 
+    display: flex; align-items: center; gap: 10px; 
+    margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px;
+}
+
+.yeni-grup-btn, .kaydet-btn {
+    background-color: #03752b; color: white;
+    border: none; padding: 10px; border-radius: 5px;
+    cursor: pointer; font-weight: bold;
+}
+
+.yeni-grup-btn:hover, .kaydet-btn:hover { background-color: #0056b3; }

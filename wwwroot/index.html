@@ -2,83 +2,130 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>SignalR Chat Test</title>
-    <!-- Microsoft SignalR JavaScript Kütüphanesi -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-</head>
-<body style="font-family: Arial, sans-serif; padding: 20px;">
-    <h2>SignalR Güvenli Chat Testi</h2>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sohbet Uygulaması</title>
     
-    <!-- Token Yapıştırma Alanı -->
-    <div style="margin-bottom: 20px; padding: 10px; background-color: #f0f0f0;">
-        <label><b>Postman'den Alınan Token:</b></label><br>
-        <textarea id="tokenInput" rows="3" style="width: 100%; margin-top: 5px;" placeholder="eyJhbG..."></textarea>
-        <button onclick="baglantiyiBaslat()">Tünele Bağlan</button>
-    </div>
-
-    <div id="status" style="color: red; font-weight: bold; margin-bottom: 10px;">Bağlı Değil</div>
-
-    <div style="margin-bottom: 10px;">
-        <label>Sohbet Odası ID:</label>
-        <input type="number" id="sohbetId" value="1" style="width: 50px;">
-    </div>
-
-    <input type="text" id="gonderen" placeholder="Adınız" value="Zeynep">
-    <input type="text" id="mesaj" placeholder="Mesajınız..." style="width: 300px;">
-    <button onclick="mesajGonder()">Gönder</button>
-
-    <h3>Gelen Mesajlar:</h3>
-    <ul id="mesajListesi"></ul>
-
-    <script>
-        let connection;
-
-        function baglantiyiBaslat() {
-            const token = document.getElementById("tokenInput").value;
-            if (!token) { alert("Lütfen önce token yapıştırın!"); return; }
-
-            connection = new signalR.HubConnectionBuilder()
-                .withUrl("/chathub", { accessTokenFactory: () => token })
-                .build();
-
-            connection.on("YeniMesajAlindi", (gonderen, mesaj) => {
-                const li = document.createElement("li");
-                li.innerHTML = `<b>${gonderen}:</b> ${mesaj}`;
-                document.getElementById("mesajListesi").appendChild(li);
-            });
-
-            // GÜNCELLENEN KISIM: Bağlantı açıldığında odaya katılma isteği gönder
-            connection.start()
-                .then(() => {
-                    document.getElementById("status").innerText = "Kilit Açıldı! SignalR Bağlantısı Başarılı!";
-                    document.getElementById("status").style.color = "green";
-                    
-                    // Ekrandaki Sohbet ID'sini al ve C# tarafındaki OdayaKatil metodunu çalıştır
-                    const seciliOda = parseInt(document.getElementById("sohbetId").value);
-                    connection.invoke("OdayaKatil", seciliOda);
-                })
-                .catch(err => {
-                    console.error("Bağlantı Hatası: ", err);
-                    alert("Bağlantı reddedildi! Token geçersiz veya süresi dolmuş olabilir.");
-                });
-        }
-
-        function mesajGonder() {
-            if(!connection || connection.state !== "Connected") {
-                alert("Önce tünele bağlanmalısınız!");
-                return;
-            }
-
-            const gonderen = document.getElementById("gonderen").value;
-            const mesaj = document.getElementById("mesaj").value;
+    <!-- DİKKAT: Tarayıcı önbelleğini zorla kırmak için sonuna '?v=2' ekledik -->
+    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- Sol Taraf: Sohbet Listesi -->
+        <div class="sidebar">
+            <div class="header">
+                <!-- Profil Bilgileri -->
+                <div class="user-profile-section" style="display: flex; align-items: center; gap: 12px;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profil" class="profile-pic" id="my-profile-pic">
+                    <div style="display: flex; flex-direction: column;">
+                        <span id="current-user-name" style="font-weight: 600; color: #111b21; font-size: 15px;">Yükleniyor...</span>
+                        <span id="current-user-email" style="color: #667781; font-size: 12px;">yükleniyor...</span>
+                    </div>
+                </div>
+                
+                <div class="header-icons">
+                    <i class="fas fa-users" title="Kullanıcıları Listele"></i>
+                    <i class="fas fa-sign-out-alt" id="logout-btn" title="Çıkış Yap" style="color: #e53935; cursor: pointer;"></i>
+                </div>
+            </div>
             
-            // GÜNCELLENEN KISIM: Sabit "1" yerine ekrandaki SohbetId'yi al
-            const sohbetId = parseInt(document.getElementById("sohbetId").value); 
-            const gonderenId = 1; // Şimdilik test için gönderen sabit
+            <div class="search-bar">
+                <div class="search-input">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Aratın veya yeni sohbet başlatın">
+                </div>
+            </div>
+            
+            <!-- Yeni Grup Butonu (Doğru Konumda) -->
+            <div style="padding: 10px;">
+                <button id="btn-yeni-grup" class="yeni-grup-btn" style="width: 100%; border-radius: 5px;">
+                    <i class="fas fa-plus"></i> Yeni Grup Oluştur
+                </button>
+            </div>
 
-            connection.invoke("MesajGonder", sohbetId, gonderenId, gonderen, mesaj);
-            document.getElementById("mesaj").value = "";
-        }
-    </script>
+            <!-- Sohbet Listesi Konteyneri (İçindeki sahte veriler silindi, JS dolduracak) -->
+            <div class="chat-list" id="chat-list">
+                <!-- Sohbetler buraya dinamik gelecek -->
+            </div>
+        </div>
+
+        <!-- Sağ Taraf: Mesajlaşma Ekranı -->
+        <div class="main-chat">
+            <div class="header">
+                <div class="chat-info">
+                  <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Kullanıcı" class="profile-pic">
+                    <div style="display: flex; flex-direction: column; justify-content: center;">
+                         <h4 id="chat-header-title">Sohbet Seçin</h4>
+        <!-- Alt kısımdaki katılımcı isimleri için yeni alan -->
+                        <span id="chat-header-members" style="font-size: 12px; color: #667781; margin-top: 2px;"></span>
+                    </div>
+                </div>
+                <div class="header-icons">
+                    <i class="fas fa-search"></i>
+                    <i class="fas fa-ellipsis-v"></i>
+                </div>
+            </div>
+
+            <!-- Mesajlar Konteyneri (İçindeki sahte veriler silindi, JS dolduracak) -->
+            <div class="messages-container" id="messages-container">
+                <p style="text-align:center; color:#999; margin-top:50px;">Mesajlaşmaya başlamak için soldan bir sohbet seçin.</p>
+            </div>
+
+            <div class="input-area">
+                <i class="far fa-smile"></i>
+                <i class="fas fa-paperclip"></i>
+                <input type="text" id="message-input" placeholder="Bir mesaj yazın">
+                <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profil Güncelleme Modalı -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-profile-modal">&times;</span>
+            <h3 style="margin-bottom: 20px; color: #111b21;">Profil Bilgileri</h3>
+            
+            <div class="input-group">
+                <label>Ad Soyad</label>
+                <input type="text" id="update-name" placeholder="Adınız Soyadınız">
+            </div>
+            
+            <div class="input-group">
+                <label>E-posta</label>
+                <input type="email" id="update-email" placeholder="E-posta adresiniz">
+            </div>
+
+            <button id="save-profile-btn" class="save-btn">Değişiklikleri Kaydet</button>
+        </div>
+    </div>
+
+    <!-- Yeni Grup Modalı -->
+    <div id="grup-modal" class="modal-gizli">
+        <div class="modal-icerik">
+            <span id="modal-kapat">&times;</span>
+            <h3 style="margin-bottom: 10px; color: #111b21;">Yeni Grup Oluştur</h3>
+
+            <div class="input-group">
+                <label>Grup Adı:</label>
+                <input type="text" id="yeni-grup-adi" placeholder="Örn: Blokzin Proje Ekibi">
+            </div>
+
+            <div class="input-group">
+                <label>Kişi Ara:</label>
+                <input type="text" id="kisi-ara" placeholder="İsim veya e-posta ara...">
+            </div>
+
+            <div id="kullanici-listesi" class="kullanici-listesi-container">
+                <!-- JavaScript ile buraya diğer kullanıcılar liste olarak eklenecek -->
+            </div>
+
+            <button id="btn-grubu-kaydet" class="kaydet-btn" style="margin-top: 15px;">Grubu Oluştur</button>
+        </div>
+    </div>
+
+    <!-- JS dosyasının sonuna da ?v=2 ekledik ki en güncel hali yüklensin -->
+    <script src="app.js?v=2"></script>
 </body>
 </html>

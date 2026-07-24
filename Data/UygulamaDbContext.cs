@@ -3,6 +3,9 @@ namespace STAJ1.Data;
 using STAJ1.Models;
 public class UygulamaDbContext : DbContext
 {
+    public UygulamaDbContext(DbContextOptions<UygulamaDbContext> options) : base(options)
+    {
+    }
     public DbSet<Kullanici> kullanicilar { get; set; }
     public DbSet<Rol> roller { get; set; }
     public DbSet<Kullanicirol> kullaniciroller { get; set; }

@@ -22,13 +22,28 @@ public class KullanicilarController : ControllerBase
         _logRepository = logRepository;
     }
 
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpGet]
     public IActionResult Getir()
     {
         var kullanicilar = _kullaniciService.TumKullanicilariGetir();
         return Ok(kullanicilar); 
     }
+    [Authorize] // Admin kısıtlaması yok, giriş yapan herkes görebilir
+[HttpGet("grup-icin-liste")]
+public IActionResult GrupIcinKullanicilariGetir()
+{
+    // Senin KullaniciService'indeki hazır metodu kullanıyoruz
+    var kullanicilar = _kullaniciService.TumKullanicilariGetir()
+        .Select(k => new { 
+            id = k.Id, 
+            adsoyad = k.AdSoyad, 
+            eposta = k.Eposta 
+        }) 
+        .ToList();
+        
+    return Ok(kullanicilar);
+}
 
     [HttpPost]
     public IActionResult Ekle([FromBody] Kullanici yeniKullanici)

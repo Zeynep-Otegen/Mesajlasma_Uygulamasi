@@ -10,6 +10,8 @@ using STAJ1.Hubs;
 using Microsoft.EntityFrameworkCore; // Veritabanı bağlantısı için eklendi
 
 var builder = WebApplication.CreateBuilder(args);
+// Güvenlik maskesini kaldırıp gerçek token verilerini ve hatalarını terminale yazdırması için:
+Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
 
 // 1. Controller (API) sistemini projeye dahil ediyoruz
 builder.Services.AddControllers();
@@ -44,20 +46,33 @@ builder.Services.AddAuthentication(options =>
     };
 
     options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
         {
-            OnMessageReceived = context =>
+            Console.WriteLine("\n🚨 DİKKAT! TOKEN REDDEDİLDİ: " + context.Exception.Message);
+            return Task.CompletedTask;
+        },
+        
+        OnMessageReceived = context =>
+        {
+            // YENİ EKLENEN AJAN KOD: Kapıya gelen isteğin içindeki Authorization başlığını olduğu gibi yazdır
+            var gelenBaslik = context.Request.Headers["Authorization"].ToString();
+            if (!string.IsNullOrEmpty(gelenBaslik))
             {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-
-                // Eğer istekte token varsa ve adres chathub ise token'ı yakala
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
-                {
-                    context.Token = accessToken;
-                }
-                return Task.CompletedTask;
+                Console.WriteLine("\n🕵️ KAPIYA GELEN TAM METİN: [" + gelenBaslik + "]\n");
             }
-        };
+
+            // Aşağısı önceden var olan kısımlar (Sohbet ağı için)
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 
@@ -80,6 +95,7 @@ var app = builder.Build();
 app.UseAuthentication(); // YENİ EKLENEN: Önce kimlik (bilet) kontrolü
 app.UseAuthorization();  // ZATEN VARDI: Sonra yetki kontrolü
 
+app.UseDefaultFiles();
 app.UseStaticFiles();
 // Onun yerine Controller sınıflarını otomatik bulup haritalayan bu kodu ekliyoruz:
 app.MapControllers();
