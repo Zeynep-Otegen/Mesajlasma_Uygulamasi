@@ -240,7 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let aktifSohbetId = null; 
     let benimKullaniciIdm = null; 
 
-    // 1. Kendi ID'mizi Token'dan alalım (Kim giden, kim gelen mesaj bilelim)
+    // Kim giden, kim gelen mesajlarını ayırt edebilmek için kendi kullanıcı ID'mizi alıyoruz
     function kendiIdmiAl() {
         if (!token) return null;
         const base64Url = token.split('.')[1];
@@ -250,7 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     benimKullaniciIdm = kendiIdmiAl();
 
-    // 2. Sol Menüden Bir Sohbete Tıklanmasını Dinle
+    //Sol Menüden Bir Sohbete Tıklanması Dinleme
     chatList.addEventListener("click", async (e) => {
         const chatItem = e.target.closest(".chat-item");
         if (!chatItem) return; // Tıklanan yer sohbet kutusu değilse boşver
@@ -273,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
             gruptakiKisileriGetir(aktifSohbetId); // Yeni metodumuzu burada çağırıyoruz
         }
 
-        // 3. API'den Bu Sohbetin Mesajlarını Çek
+        // Sohbet mesajlarını getirme ve ekrana yansıtma
         await mesajlariGetir(aktifSohbetId);
     });
 
@@ -297,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // 4. Mesajları Veritabanından Getiren Fonksiyon (Hizalama ve Tarih Güncellendi)
+    //Mesajları getirme ve yansıtma
     async function mesajlariGetir(sohbetId) {
         messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Mesajlar yükleniyor...</p>";
         
@@ -343,7 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // 5. Mesajları HTML Olarak Çizen Fonksiyon (Renk, İsim ve Hizalama Güncellendi)
+    
     function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "") {
         if (!text || text.trim() === "") return;
 
@@ -351,29 +351,38 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.classList.add("message");
         messageDiv.classList.add(isSent ? "sent" : "received");
 
-        // Sadece karşıdan gelen mesajlarda ve isim bilgisi varsa ismi ufakça yaz
         let isimHtml = (!isSent && gonderenKisi) ? `<span style="font-size:11px; font-weight:bold; color:#008069; display:block; margin-bottom:3px;">${gonderenKisi}</span>` : "";
+
+        // FontAwesome hoparlör ikonu (sadece metin varsa gösterilir)
+        let sesIkonu = `<i class="fas fa-volume-up btn-seslendir" style="cursor:pointer; color:#888; font-size:13px; margin-left:10px;" title="Bu mesajı seslendir"></i>`;
 
         messageDiv.innerHTML = `
             ${isimHtml}
-            <p style="margin: 0;">${text}</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <p style="margin: 0; flex: 1;">${text}</p>
+                ${sesIkonu}
+            </div>
             <span class="msg-time">${timeString}</span>
         `;
+
+        // Tıklama Olayı: Kullanıcı hoparlöre basarsa metni seslendir
+        const btnSes = messageDiv.querySelector('.btn-seslendir');
+        btnSes.addEventListener('click', () => {
+            metniSeslendir(text); // Ana TTS fonksiyonunu çağırıyoruz
+        });
 
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight; // En alta kaydır
     }
 
  
-    async function mesajGonder() {
+   
+    async function mesajGonder(zorlaOku = false) { 
         const metin = messageInput.value.trim();
         
         console.log("📝 Gönderim tetiklendi! Yazılan Mesaj:", metin, "| Aktif Sohbet ID:", aktifSohbetId);
 
-        if (!metin) {
-            console.warn("⚠️ Mesaj kutusu boş, gönderim iptal edildi.");
-            return;
-        }
+        if (!metin) return;
         
         if (!aktifSohbetId) {
             alert("Lütfen mesaj göndermeden önce sol taraftan bir sohbete tıklayın!");
@@ -383,11 +392,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageInput.value = ""; // Kutuyu temizle
 
         try {
-            // DİKKAT 1: Eğer C# tarafında MesajController kullanıyorsan adres /api/mesaj/gonder olmalıdır.
             const apiAdresi = "/api/mesajlar"; 
-            console.log("📡 API'ye İstek Atılıyor... Hedef:", apiAdresi);
-
-           const response = await fetch(apiAdresi, {
+            const response = await fetch(apiAdresi, {
                 method: "POST",
                 headers: { 
                     "Authorization": `Bearer ${token}`,
@@ -396,73 +402,46 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({
                     sohbetid: parseInt(aktifSohbetId),
                     icerik: metin,
-                    // EKSİK OLAN 2 VERİYİ EKLİYORUZ:
                     gonderenid: benimKullaniciIdm, 
                     gondermeTarihi: new Date().toISOString() 
                 })
             });
 
-            console.log("🚥 API Yanıt Kodu:", response.status);
-
             if (response.ok) {
-                // Başarıyla gittiyse kendi ekranıma da ekle
                 const suAn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 ekranaMesajEkle(metin, true, suAn);
+
+                // YENİ: Kendi gönderdiğimiz mesajı okuma senaryosu
+                const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
+                if (zorlaOku || (ayarlar && ayarlar.otomatikOku === true)) {
+                    metniSeslendir(metin);
+                }
             } else {
-                const hataMesaji = await response.text();
-                console.error("🚨 API Hatası:", hataMesaji);
-                alert("Mesaj gönderilemedi (Detay F12 Konsolunda): " + response.status);
+                console.error("🚨 API Hatası:", await response.text());
+                alert("Mesaj gönderilemedi: " + response.status);
             }
         } catch (error) {
             console.error("🚨 Sunucuya ulaşılamadı:", error);
         }
     }
 
-    // Buton veya Enter ile Göndermeyi Tetikle
-    if (sendBtn) {
-        sendBtn.addEventListener("click", mesajGonder);
-    }
-
-    if (messageInput) {
-        messageInput.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") mesajGonder();
-        });
-    }
-    // ... YUKARIDAKİ KODLARIN AYNEN DURUYOR ...
-
-    // Buton veya Enter ile Göndermeyi Tetikle
-    if (sendBtn) {
-        sendBtn.addEventListener("click", mesajGonder);
-    }
-
-    if (messageInput) {
-        messageInput.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") mesajGonder();
-        });
-    }
 
     // =========================================================
-    // --- YENİ EKLENEN: SIGNALR GERÇEK ZAMANLI BAĞLANTI ---
+    // --- SIGNALR GERÇEK ZAMANLI BAĞLANTI ---
     // =========================================================
     
-    // 1. Hub Bağlantısını Kur
     const connection = new signalR.HubConnectionBuilder()
-        .withUrl("/chathub", { // C# tarafındaki hub rotan neyse buraya o yazılmalı
+        .withUrl("/chathub", { 
             accessTokenFactory: () => token 
         })
         .withAutomaticReconnect()
         .build();
 
-    // 2. Sunucudan Gelen "YeniMesajGeldi" Sinyalini Dinle
     connection.on("YeniMesajGeldi", (mesaj) => {
-        // Gelen mesajı atan kişi ben miyim kontrol et
         const gonderenId = mesaj.gonderenid || mesaj.Gonderenid || mesaj.kullaniciid;
         const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
 
-        // Mesaj, şu an ekranda açık olan sohbete aitse VE atan kişi ben DEĞİLSEM ekrana bas
-        // (Çünkü kendi mesajımı 'mesajGonder' içinde zaten ekrana basıyorum)
         if (mesaj.sohbetid == aktifSohbetId && !benMiyim) {
-            
             const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
             const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
             
@@ -477,12 +456,180 @@ document.addEventListener("DOMContentLoaded", () => {
             const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
             
             ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi);
+            
+            // YENİ: Karşıdan mesaj gelince Otomatik Oku açıksa seslendir
+            const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
+            if (ayarlar && ayarlar.otomatikOku === true) {
+                metniSeslendir(metin);
+            }
         }
     });
 
-    // 3. Bağlantıyı Başlat
     connection.start()
         .then(() => console.log("✅ SignalR Başarıyla Bağlandı!"))
         .catch(err => console.error("🚨 SignalR Bağlantı Hatası: ", err));
 
+
+    // =========================================================
+    // --- TTS AYARLARI VE LOCALSTORAGE YÖNETİMİ ---
+    // =========================================================
+
+    const btnAyarlar = document.getElementById("btn-ayarlar");
+    const ayarlarModal = document.getElementById("ayarlar-modal");
+    const ayarlarKapat = document.getElementById("ayarlar-modal-kapat");
+    const btnAyarlariKaydet = document.getElementById("btn-ayarlari-kaydet");
+
+    const ttsDil = document.getElementById("tts-dil");
+    const ttsSes = document.getElementById("tts-ses");
+    const ttsHiz = document.getElementById("tts-hiz");
+    const hizGosterge = document.getElementById("hiz-gosterge");
+    const ttsOtomatik = document.getElementById("tts-otomatik");
+
+    function ayarlariYukle() {
+        const kayitliAyarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
+        if (kayitliAyarlar) {
+            ttsDil.value = kayitliAyarlar.dil || "tr-TR";
+            ttsSes.value = kayitliAyarlar.ses || "tr-TR-Standard-A";
+            ttsHiz.value = kayitliAyarlar.hiz || "1.0";
+            hizGosterge.textContent = kayitliAyarlar.hiz || "1.0";
+            ttsOtomatik.checked = kayitliAyarlar.otomatikOku || false;
+        }
+    }
+    ayarlariYukle(); 
+
+    if (ttsHiz) {
+        ttsHiz.addEventListener("input", (e) => {
+            hizGosterge.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+    }
+
+    if (btnAyarlar) {
+        btnAyarlar.addEventListener("click", () => {
+            ayarlarModal.classList.replace("modal-gizli", "modal-acik");
+        });
+    }
+    if (ayarlarKapat) {
+        ayarlarKapat.addEventListener("click", () => {
+            ayarlarModal.classList.replace("modal-acik", "modal-gizli");
+        });
+    }
+
+    if (btnAyarlariKaydet) {
+        btnAyarlariKaydet.addEventListener("click", () => {
+            const yeniAyarlar = {
+                dil: ttsDil.value,
+                ses: ttsSes.value,
+                hiz: parseFloat(ttsHiz.value).toFixed(1),
+                otomatikOku: ttsOtomatik.checked
+            };
+            localStorage.setItem("ttsAyarlari", JSON.stringify(yeniAyarlar));
+            alert("Ayarlar başarıyla kaydedildi!");
+            ayarlarModal.classList.replace("modal-acik", "modal-gizli");
+        });
+    }
+
+    // =========================================================
+    // --- GOOGLE CLOUD TTS & MESAJ KUYRUĞU (QUEUE) SİSTEMİ ---
+    // =========================================================
+
+    const mesajKuyrugu = []; 
+    let sesOynatiliyor = false;
+
+    function metniSeslendir(metin) {
+        mesajKuyrugu.push(metin); 
+        kuyruguIsle(); 
+    }
+
+    async function kuyruguIsle() {
+        if (sesOynatiliyor || mesajKuyrugu.length === 0) return;
+
+        sesOynatiliyor = true; 
+        const metin = mesajKuyrugu.shift(); 
+
+        const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari")) || {
+            dil: "tr-TR", 
+            ses: "tr-TR-Standard-A", 
+            hiz: "1.0"
+        };
+
+        try {
+            //Güvenli C# sunucuya istek atılır.
+            const response = await fetch("/api/tts/seslendir", {
+                method: "POST",
+                headers: { 
+                    "Authorization": `Bearer ${token}`, // JWT Token ekleme
+                    "Content-Type": "application/json" 
+                },
+                body: JSON.stringify({
+                    text: metin,
+                    languageCode: ayarlar.dil,
+                    voiceName: ayarlar.ses,
+                    speakingRate: parseFloat(ayarlar.hiz)
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const audioSrc = "data:audio/mp3;base64," + data.audioContent;
+                const sesPlayer = new Audio(audioSrc);
+                
+                sesPlayer.onended = () => {
+                    sesOynatiliyor = false; 
+                    kuyruguIsle(); 
+                };
+
+                sesPlayer.play();
+            } else {
+                console.error("C# Sunucu TTS Hatası:", response.status);
+                sesOynatiliyor = false; 
+                kuyruguIsle(); 
+            }
+        } catch (error) {
+            console.error("Bağlantı hatası:", error);
+            sesOynatiliyor = false;
+            kuyruguIsle(); 
+        }
+    }
+    // =========================================================
+    // --- TUŞ KOMBİNASYONLARI (KULLANICI DENEYİMİ) ---
+    // =========================================================
+
+    // Gönder Butonuna Tıklama (Normal Gönderim)
+    if (sendBtn) {
+        // Eski çakışan kodları silip sadece bunu ekledik
+        sendBtn.addEventListener("click", () => mesajGonder(false));
+    }
+
+    // Klavye Kombinasyonları
+    if (messageInput) {
+        messageInput.addEventListener("keydown", (e) => {
+            
+            // 1. Ctrl + Shift + S (Gönder ve Seslendir)
+            if (e.ctrlKey && e.shiftKey && (e.key === "S" || e.key === "s")) {
+                e.preventDefault(); 
+                mesajGonder(true); 
+                return; 
+            }
+
+            // 2. ENTER TUŞU SENARYOLARI
+            if (e.key === "Enter") {
+                if (e.shiftKey) {
+                    // Shift + Enter: Alt satıra geç (Sadece input alanındayken çalışır)
+                    return; 
+                } 
+                else if (e.ctrlKey) {
+                    // Ctrl + Enter: Mesajı Gönder ve ZORLA Seslendir
+                    e.preventDefault();
+                    mesajGonder(true); 
+                } 
+                else {
+                    // Sadece Enter: Normal Gönder 
+                    e.preventDefault();
+                    mesajGonder(false);
+                }
+            }
+        });
+    }
+
 }); 
+

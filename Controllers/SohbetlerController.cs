@@ -61,20 +61,20 @@ public IActionResult GrupOlustur([FromBody] YeniGrupRequest request)
 {
     try
     {
-        // 1. İsteği yapan kullanıcının (senin) kimliğini al
+        //İsteği yapan kullanıcının kimliğini al
         var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdString)) return Unauthorized("Kullanıcı kimliği bulunamadı.");
         var olusturanKullaniciId = int.Parse(userIdString);
 
-        // 2. Senin modeline uygun Sohbet nesnesini hazırla
+        // Modele uygun sohbet listesi
         var yeniSohbet = new Sohbet
         {
-            grupadi = request.GrupAdi, // Modelindeki harf büyüklüklerine göre düzelt (grupadi/GrupAdi)
+            grupadi = request.GrupAdi, // Null olamaz , uyarı veriyor
             grupmu = true,
             olusturmaTarihi = DateTime.UtcNow
         };
 
-        // 3. İŞTE BURASI: Senin yazdığın 'SohbetOlustur' metodunu kullanıyoruz!
+       
         var olusturulanSohbet = _sohbetService.SohbetOlustur(yeniSohbet);
 
         // Grubu kuran kişiyi de listeye ekle
@@ -83,7 +83,7 @@ public IActionResult GrupOlustur([FromBody] YeniGrupRequest request)
             request.KatilimciIdleri.Add(olusturanKullaniciId);
         }
 
-        // 4. İŞTE BURASI: Senin yazdığın 'KullaniciyiSohbeteEkle' metodunu kullanıyoruz!
+      
         foreach (var kullaniciId in request.KatilimciIdleri)
         {
             _sohbetService.KullaniciyiSohbeteEkle(olusturulanSohbet.id, kullaniciId);
@@ -136,7 +136,7 @@ public IActionResult GrupOlustur([FromBody] YeniGrupRequest request)
 
             return Ok(gruptakiKisiler);
         }
-        catch (Exception ex)
+        catch (Exception ex)//Bilinmeyen hata durumunda inner exception yakalama kullanıldı
         {
             var gercekHata = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
             return BadRequest($"Hata: {gercekHata}");

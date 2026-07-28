@@ -7,15 +7,15 @@ namespace STAJ1.Helpers;
 
 public static class PasswordHasher
 {
-    // Şifreyi Argon2id kullanarak hash'ler
+    // Şifreyi Argon2id kullanarak hashleme sınıfı
     public static string HashPassword(string password)
     {
         byte[] salt = RandomNumberGenerator.GetBytes(16); //İki aynı şifre olsa bile farklı hash üretilir, güvenlik için
         byte[] passwordBytes = Encoding.UTF8.GetBytes(password);//Argon2id algoritması metin değil byte dizisi ile çalışır.
 
-        using var argon2 = new Argon2id(passwordBytes)
+        using var argon2 = new Argon2id(passwordBytes) //AMAÇ:Saldırganın işini zorlaştırmak
         {
-            Salt = salt,
+            Salt = salt,  //hash den önceki byte dizisi
             DegreeOfParallelism = 8, // İşlemci çekirdek kullanımı
             MemorySize = 65536,      // Bellek boyutu (64 MB)
             Iterations = 4           // Döngü sayısı

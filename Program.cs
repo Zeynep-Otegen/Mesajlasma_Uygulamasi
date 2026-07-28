@@ -15,6 +15,7 @@ Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
 
 // 1. Controller (API) sistemini projeye dahil ediyoruz
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();//HTTP istekleri için
 builder.Services.AddSignalR();
 
 // VERİTABANI BAĞLANTISI (Gizli appsettings.json dosyasından alınıyor)

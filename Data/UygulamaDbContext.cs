@@ -14,11 +14,7 @@ public class UygulamaDbContext : DbContext
     public DbSet<Mesaj> mesajlar { get; set; }
     public DbSet<Kullanicilog> kullaniciloglar { get; set; }
 
- protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-       
-    }
-protected override void OnModelCreating(ModelBuilder modelBuilder)
+protected override void OnModelCreating(ModelBuilder modelBuilder) //Entitiy ler arasındaki ilişkiler tanımlanır.
     {
         // Kullanicirol tablosunun bağlantılarını açıkça belirtiyoruz
         modelBuilder.Entity<Kullanicirol>()

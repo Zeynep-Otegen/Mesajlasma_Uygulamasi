@@ -27,6 +27,7 @@
                 
                 <div class="header-icons">
                     <i class="fas fa-users" title="Kullanıcıları Listele"></i>
+                    <i class="fas fa-cog" id="btn-ayarlar" title="TTS Ayarları"></i>
                     <i class="fas fa-sign-out-alt" id="logout-btn" title="Çıkış Yap" style="color: #e53935; cursor: pointer;"></i>
                 </div>
             </div>
@@ -125,6 +126,49 @@
             <button id="btn-grubu-kaydet" class="kaydet-btn" style="margin-top: 15px;">Grubu Oluştur</button>
         </div>
     </div>
+    <!-- TTS Ayarları Modalı -->
+<div id="ayarlar-modal" class="modal-gizli">
+    <div class="modal-icerik" style="width: 450px;">
+        <span id="ayarlar-modal-kapat" style="align-self: flex-end; cursor: pointer; font-size: 24px; font-weight: bold; color: #555;">&times;</span>
+        <h3 style="margin-bottom: 15px; color: #111b21;">TTS ve İletişim Ayarları</h3>
+
+        <div class="input-group">
+            <label>Dil Seçimi:</label>
+            <select id="tts-dil" style="padding: 10px; background-color: #f0f2f5; border: none; border-bottom: 2px solid #008069; outline: none; border-radius: 5px 5px 0 0; font-size: 15px;">
+                <option value="tr-TR">Türkçe</option>
+                <option value="en-US">İngilizce</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Ses Tipi (Google Standart):</label>
+            <select id="tts-ses" style="padding: 10px; background-color: #f0f2f5; border: none; border-bottom: 2px solid #008069; outline: none; border-radius: 5px 5px 0 0; font-size: 15px;">
+                <optgroup label="Türkçe Sesler">
+                    <option value="tr-TR-Standard-A">Kadın 1 (TR)</option>
+                    <option value="tr-TR-Standard-C">Kadın 2 (TR)</option>
+                    <option value="tr-TR-Standard-B">Erkek 1 (TR)</option>
+                    <option value="tr-TR-Standard-E">Erkek 2 (TR)</option>
+                </optgroup>
+                <optgroup label="İngilizce Sesler">
+                    <option value="en-US-Standard-C">Kadın (EN)</option>
+                    <option value="	en-US-Standard-A">Erkek (EN)</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Konuşma Hızı: <span id="hiz-gosterge">1.0</span>x</label>
+            <input type="range" id="tts-hiz" min="0.5" max="2.0" step="0.1" value="1.0" style="accent-color: #008069; cursor: pointer;">
+        </div>
+
+        <div class="input-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 10px;">
+            <input type="checkbox" id="tts-otomatik" style="width: 20px; height: 20px; accent-color: #008069; cursor: pointer;">
+            <label for="tts-otomatik" style="margin: 0; color: #111b21; font-weight: bold; cursor: pointer;">Mikrofon Arızası (Otomatik Oku)</label>
+        </div>
+
+        <button id="btn-ayarlari-kaydet" class="kaydet-btn" style="margin-top: 15px;">Ayarları Kaydet</button>
+    </div>
+</div>
 
     <!-- JS dosyasının sonuna da ?v=2 ekledik ki en güncel hali yüklensin -->
     <script src="app.js?v=2"></script>
