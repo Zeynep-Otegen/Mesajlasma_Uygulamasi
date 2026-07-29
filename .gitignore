@@ -14,4 +14,8 @@ Thumbs.db
 # Şifrelerin olduğu dosyaları GitHub'a GÖNDERME
 appsettings.json
 
+docker-compose.yml
 
+compose.yaml
+
+.env
