@@ -19,4 +19,7 @@ public class Mesaj
     public bool okundumu { get; set; }
     [Column("gonderilmetarihi")]
     public DateTime gondermeTarihi { get; set; }
+    
+    [Column("DosyaYolu")]
+    public string? DosyaYolu { get; set; }
 }

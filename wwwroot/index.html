@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="style.css?v=2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+<!-- EMOJİ KÜTÜPHANESİ -->
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
 <body>
     <div class="app-container">
         
@@ -73,13 +75,26 @@
             <div class="messages-container" id="messages-container">
                 <p style="text-align:center; color:#999; margin-top:50px;">Mesajlaşmaya başlamak için soldan bir sohbet seçin.</p>
             </div>
+<div id="dosya-onizleme-kutusu" style="display: none; padding: 10px; background: #e9edef; border-radius: 8px 8px 0 0; font-size: 14px; color: #111b21; border-bottom: 1px solid #d1d7db; position: relative; margin: 0 15px;">
+    <i class="fas fa-file-alt" style="margin-right: 8px; color: #54656f;"></i>
+    <span id="onizleme-dosya-adi" style="font-weight: 500;">Dosya.pdf</span>
+    <i class="fas fa-times" id="btn-onizleme-kapat" style="position: absolute; right: 15px; top: 12px; cursor: pointer; color: #e53935;" title="İptal Et"></i>
+</div>
+<div id="emoji-picker-container" style="display: none; position: absolute; bottom: 60px; left: 15px; z-index: 1000; box-shadow: 0 5px 15px rgba(0,0,0,0.2); border-radius: 8px;">
+    <emoji-picker class="light"></emoji-picker>
+</div>
+            <div class="input-area" style="position: relative;">
+   <i class="far fa-smile" id="btn-emoji" style="cursor: pointer;" title="Emoji Ekle"></i>
+    
+    <!--  Ataç ikonuna id verildi -->
+    <i class="fas fa-paperclip" id="btn-atac" style="cursor: pointer;" title="Dosya Ekle"></i>
+    
+   
+    <input type="file" id="gizli-dosya-secici" style="display: none;" accept="image/*, .pdf, .doc, .docx" />
 
-            <div class="input-area">
-                <i class="far fa-smile"></i>
-                <i class="fas fa-paperclip"></i>
-                <input type="text" id="message-input" placeholder="Bir mesaj yazın">
-                <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
-            </div>
+    <input type="text" id="message-input" placeholder="Bir mesaj yazın">
+    <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
+</div>
         </div>
     </div>
 

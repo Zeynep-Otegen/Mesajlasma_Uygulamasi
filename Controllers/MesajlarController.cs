@@ -3,9 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using STAJ1.Models;
 using STAJ1.Services;
 using System;
-using System.Linq; // LINQ sorguları için eklendi
-using Microsoft.AspNetCore.SignalR; // SignalR için eklendi
+using System.Linq; 
+using Microsoft.AspNetCore.SignalR; 
 using STAJ1.Hubs;
+using System.Threading.Tasks; // Task kullanımı için gerekli
 
 namespace STAJ1.Controllers;
 
@@ -15,11 +16,10 @@ namespace STAJ1.Controllers;
 public class MesajlarController : ControllerBase
 {
     private readonly IMesajService _mesajService;
-    private readonly IKullaniciService _kullaniciService; // İsimleri bulmak için eklendi
+    private readonly IKullaniciService _kullaniciService; 
     private readonly IHubContext<ChatHub> _hubContext;
 
-    // Constructor güncellendi
-   public MesajlarController(IMesajService mesajService, IKullaniciService kullaniciService, IHubContext<ChatHub> hubContext)
+    public MesajlarController(IMesajService mesajService, IKullaniciService kullaniciService, IHubContext<ChatHub> hubContext)
     {
         _mesajService = mesajService;
         _kullaniciService = kullaniciService;
@@ -34,7 +34,6 @@ public class MesajlarController : ControllerBase
             var mesajlar = _mesajService.SohbeteAitMesajlariGetir(sohbetId);
             var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
 
-            // Sadece ID değil, İSİM bilgisini de içeren yeni bir yapı (Anonymous Object) oluşturuyoruz
             var mesajListesi = mesajlar.Select(m => new
             {
                 m.id,
@@ -42,7 +41,7 @@ public class MesajlarController : ControllerBase
                 gonderenid = m.gonderenid,
                 icerik = m.icerik,
                 gondermeTarihi = m.gondermeTarihi,
-                // Kullanıcıyı ID'sinden bul, AdSoyad'ı al, yoksa "Bilinmeyen" yaz
+                dosyaYolu = m.DosyaYolu, // EKLENDİ: Sayfa yenilendiğinde dosyaların gelmesi için
                 gonderenAd = tumKullanicilar.FirstOrDefault(k => k.Id == m.gonderenid)?.AdSoyad ?? "Bilinmeyen Kullanıcı"
             }).ToList();
 
@@ -57,12 +56,12 @@ public class MesajlarController : ControllerBase
    [HttpPost]
     public async Task<IActionResult> MesajGonder([FromBody] Mesaj yeniMesaj) 
     {
+        
         try
         {
-           
+            // Veritabanına kaydetmesi için Servis katmanına gönderiliyor
             _mesajService.MesajGonder(yeniMesaj);
 
-          
             var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
             var gonderenKisi = tumKullanicilar.FirstOrDefault(k => k.Id == yeniMesaj.gonderenid);
             var gonderenAd = gonderenKisi != null ? gonderenKisi.AdSoyad : "Bilinmeyen";
@@ -73,9 +72,9 @@ public class MesajlarController : ControllerBase
                 gonderenid = yeniMesaj.gonderenid,
                 icerik = yeniMesaj.icerik,
                 gondermeTarihi = yeniMesaj.gondermeTarihi,
-                gonderenAd = gonderenAd // İsim bilgisini de SignalR ile yolluyoruz ki ekrana yazılabilsin
+                dosyaYolu = yeniMesaj.DosyaYolu, // EKLENDİ: SignalR ile anlık dosya linkini fırlatmak için
+                gonderenAd = gonderenAd 
             };
-
             
             await _hubContext.Clients.All.SendAsync("YeniMesajGeldi", yayinlanacakMesaj);
 
