@@ -63,4 +63,20 @@ public class KullaniciService : IKullaniciService
 
         _repository.Sil(id);
     }
+    public void DurumGuncelle(int kullaniciId, bool cevrimiciMi)
+{
+    var kullanici = _repository.IdyeGoreGetir(kullaniciId); 
+    if (kullanici != null)
+    {
+        kullanici.CevrimiciMi = cevrimiciMi;
+        
+        if (!cevrimiciMi) 
+        {
+            
+            kullanici.SonGorulme = DateTime.UtcNow; 
+        }
+        
+        _repository.Guncelle(kullanici); 
+    }
+}
 }

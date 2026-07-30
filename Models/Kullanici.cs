@@ -18,6 +18,9 @@ public class Kullanici
     [Column("sifrehash")]
     public string SifreHash { get; set; } = string.Empty;
 
+    public bool CevrimiciMi { get; set; } = false;
+
+    public DateTime? SonGorulme { get; set; }
     // Çoka Çok İlişki: Kullanıcının sahip olduğu roller (Ara tablo üzerinden)
     public ICollection<Kullanicirol>? KullaniciRolleri { get; set; }
 }

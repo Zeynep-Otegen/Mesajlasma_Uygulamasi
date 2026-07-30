@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using STAJ1.Models;
 using STAJ1.Services;
 using System;
+using System.Linq; // LINQ sorguları için eklendi
 using STAJ1.Repositories;
 
 namespace STAJ1.Controllers;
@@ -13,10 +14,9 @@ namespace STAJ1.Controllers;
 public class SohbetlerController : ControllerBase
 {
     private readonly ISohbetService _sohbetService;
-private readonly IKullaniciService _kullaniciService; // Eklendi
-    private readonly IGenericRepository<SohbetKatilimci> _katilimciRepo; // Eklendi
+    private readonly IKullaniciService _kullaniciService; 
+    private readonly IGenericRepository<SohbetKatilimci> _katilimciRepo; 
 
-    // Constructor güncellendi
     public SohbetlerController(
         ISohbetService sohbetService, 
         IKullaniciService kullaniciService, 
@@ -56,75 +56,107 @@ private readonly IKullaniciService _kullaniciService; // Eklendi
             return BadRequest($"Veritabanı Hatası: {gercekHata}");
         }
     }
-[HttpPost("grup-olustur")]
-public IActionResult GrupOlustur([FromBody] YeniGrupRequest request)
-{
-    try
+
+    [HttpPost("grup-olustur")]
+    public IActionResult GrupOlustur([FromBody] YeniGrupRequest request)
     {
-        //İsteği yapan kullanıcının kimliğini al
-        var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdString)) return Unauthorized("Kullanıcı kimliği bulunamadı.");
-        var olusturanKullaniciId = int.Parse(userIdString);
-
-        // Modele uygun sohbet listesi
-        var yeniSohbet = new Sohbet
+        try
         {
-            grupadi = request.GrupAdi, // Null olamaz , uyarı veriyor
-            grupmu = true,
-            olusturmaTarihi = DateTime.UtcNow
-        };
+            var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdString)) return Unauthorized("Kullanıcı kimliği bulunamadı.");
+            var olusturanKullaniciId = int.Parse(userIdString);
 
-       
-        var olusturulanSohbet = _sohbetService.SohbetOlustur(yeniSohbet);
+            var yeniSohbet = new Sohbet
+            {
+                grupadi = request.GrupAdi, 
+                grupmu = true,
+                olusturmaTarihi = DateTime.UtcNow
+            };
 
-        // Grubu kuran kişiyi de listeye ekle
-        if (!request.KatilimciIdleri.Contains(olusturanKullaniciId))
-        {
-            request.KatilimciIdleri.Add(olusturanKullaniciId);
+            var olusturulanSohbet = _sohbetService.SohbetOlustur(yeniSohbet);
+
+            if (!request.KatilimciIdleri.Contains(olusturanKullaniciId))
+            {
+                request.KatilimciIdleri.Add(olusturanKullaniciId);
+            }
+
+            foreach (var kullaniciId in request.KatilimciIdleri)
+            {
+                _sohbetService.KullaniciyiSohbeteEkle(olusturulanSohbet.id, kullaniciId);
+            }
+
+            return Ok(new { mesaj = "Grup başarıyla oluşturuldu!", sohbetId = olusturulanSohbet.id });
         }
-
-      
-        foreach (var kullaniciId in request.KatilimciIdleri)
+        catch (Exception ex)
         {
-            _sohbetService.KullaniciyiSohbeteEkle(olusturulanSohbet.id, kullaniciId);
+            return BadRequest("Hata: " + ex.Message);
         }
+    }
 
-        return Ok(new { mesaj = "Grup başarıyla oluşturuldu!", sohbetId = olusturulanSohbet.id });
-    }
-    catch (Exception ex)
-    {
-        return BadRequest("Hata: " + ex.Message);
-    }
-}
+    // ========================================================================
+    // GÜNCELLENEN METOT: SOHBET LİSTESİNDE DİNAMİK İSİMLENDİRME
+    // ========================================================================
     [HttpGet("kullanici/{kullaniciId}")]
     public IActionResult KullanicininSohbetleri(int kullaniciId)
     {
         try
         {
+            // 1. Kullanıcının tüm sohbetlerini getir
             var sohbetler = _sohbetService.KullanicininSohbetleriniGetir(kullaniciId);
-            return Ok(sohbetler);
+            
+            // 2. İsim bulmak için katılımcı ve kullanıcı listelerini çek
+            var tumKatilimcilar = _katilimciRepo.HepsiniGetir();
+            var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
+
+            //Grup mu Birebir mi
+            var dinamikSohbetListesi = sohbetler.Select(s => 
+            {
+                string ekranaYazilacakAd = s.grupadi; // Varsayılan olarak kendi adını al
+
+                
+                if (!s.grupmu) 
+                {
+                    
+                    var digerKisininKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid != kullaniciId);
+                    
+                    if (digerKisininKaydi != null)
+                    {
+                     
+                        var digerKullanici = tumKullanicilar.FirstOrDefault(u => u.Id == digerKisininKaydi.kullaniciid);
+                        if (digerKullanici != null)
+                        {
+                            ekranaYazilacakAd = digerKullanici.AdSoyad; 
+                        }
+                    }
+                }
+
+                
+                return new 
+                {
+                    id = s.id,
+                    grupmu = s.grupmu,
+                    grupadi = ekranaYazilacakAd, 
+                    olusturmaTarihi = s.olusturmaTarihi
+                };
+            }).ToList();
+
+            return Ok(dinamikSohbetListesi);
         }
-      catch (Exception ex)
+        catch (Exception ex)
         {
             var gercekHata = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
             return BadRequest($"Hata: {gercekHata}");
         }
     }
 
-
-
     [HttpGet("{sohbetId}/katilimcilar")]
     public IActionResult GruptakiKisileriGetir(int sohbetId)
     {
         try
         {
-            // 1. Bu sohbete ait katılımcı kayıtlarını bul
             var katilimciKayitlari = _katilimciRepo.HepsiniGetir().Where(k => k.sohbetid == sohbetId).ToList();
-
-            // 2. Tüm kullanıcıları getir
             var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
 
-            // 3. Eşleştirip sadece isim ve e-posta döndür
             var gruptakiKisiler = katilimciKayitlari.Select(k => {
                 var kullanici = tumKullanicilar.FirstOrDefault(u => u.Id == k.kullaniciid);
                 return new {
@@ -136,7 +168,7 @@ public IActionResult GrupOlustur([FromBody] YeniGrupRequest request)
 
             return Ok(gruptakiKisiler);
         }
-        catch (Exception ex)//Bilinmeyen hata durumunda inner exception yakalama kullanıldı
+        catch (Exception ex)
         {
             var gercekHata = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
             return BadRequest($"Hata: {gercekHata}");

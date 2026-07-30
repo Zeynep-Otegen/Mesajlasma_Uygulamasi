@@ -9,4 +9,5 @@ public interface IKullaniciService
     void KullaniciEkle(Kullanici kullanici);
     void KullaniciGuncelle(int id, Kullanici guncelKullanici);
     void KullaniciSil(int id);
+    void DurumGuncelle(int kullaniciId, bool cevrimiciMi);
 }

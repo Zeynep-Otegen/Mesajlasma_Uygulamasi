@@ -2,30 +2,76 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using STAJ1.Models;
 using STAJ1.Services;
+using System;
+using System.Security.Claims; // Token'dan ID okumak için gerekli
 using System.Threading.Tasks;
 
 namespace STAJ1.Hubs;
-[Authorize] // Bu hub'a erişim için kullanıcıların giriş yapmış olması gerekiyor
+
+[Authorize] 
 public class ChatHub : Hub
 {
     private readonly IMesajService _mesajService;
+    private readonly IKullaniciService _kullaniciService; 
 
-    // Dependency Injection ile mesaj servisimizi Hub'ın içine alıyoruz
-    public ChatHub(IMesajService mesajService)
+    
+    public ChatHub(IMesajService mesajService, IKullaniciService kullaniciService)
     {
         _mesajService = mesajService;
+        _kullaniciService = kullaniciService;
     }
 
-public async Task OdayaKatil(int sohbetId)
+    // =================================================================
+    // KULLANICI UYGULAMAYA GİRDİĞİNDE
+    // =================================================================
+    public override async Task OnConnectedAsync()
     {
-        // Grup isimleri string olmak zorundadır, bu yüzden ID'yi stringe çeviriyoruz
+        // Token'dan giriş yapan kişinin ID'si
+        var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                        ?? Context.User?.FindFirst("sub")?.Value;
+
+        if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+        {
+            // Veritabanında Çevrimiçi (true) 
+            _kullaniciService.DurumGuncelle(userId, true);
+
+            
+            await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, true);
+        }
+
+        await base.OnConnectedAsync();
+    }
+
+    // =================================================================
+    // KULLANICI TARAYICIYI/SEKMEYİ KAPATTIĞINDA
+    // =================================================================
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                        ?? Context.User?.FindFirst("sub")?.Value;
+
+        if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+        {
+            // Veritabanında Çevrimdışı (false) yap 
+            _kullaniciService.DurumGuncelle(userId, false);
+
+            
+            await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, false);
+        }
+
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    
+
+    public async Task OdayaKatil(int sohbetId)
+    {
         string odaAdi = sohbetId.ToString();
         await Groups.AddToGroupAsync(Context.ConnectionId, odaAdi);
     }
-    // Metot parametrelerini güncelledik: Artık veritabanı için Id bilgileri de geliyor
+    
     public async Task MesajGonder(int sohbetId, int gonderenId, string gonderenAd, string mesajIcerigi)
     {
-        // 1. Veritabanına kaydetmek için yeni mesaj nesnesini oluşturuyoruz
         var yeniMesaj = new Mesaj
         {
             sohbetid = sohbetId,
@@ -33,11 +79,9 @@ public async Task OdayaKatil(int sohbetId)
             icerik = mesajIcerigi
         };
 
-        // 2. Servis üzerinden PostgreSQL'e kalıcı olarak kaydediyoruz
         _mesajService.MesajGonder(yeniMesaj);
 
-//3.İlgili sohbet id ye mesaj gitmeli
-      string odaAdi = sohbetId.ToString();
+        string odaAdi = sohbetId.ToString();
         await Clients.Group(odaAdi).SendAsync("YeniMesajAlindi", gonderenAd, mesajIcerigi);
     }
 }

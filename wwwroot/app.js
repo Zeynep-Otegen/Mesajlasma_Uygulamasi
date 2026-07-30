@@ -529,7 +529,18 @@ ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
             }
         }
     });
-
+connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
+        
+        const kisiIndex = aktifKisilerVerisi.findIndex(k => k.id === kullaniciId || k.Id === kullaniciId);
+        if (kisiIndex !== -1) {
+            aktifKisilerVerisi[kisiIndex].cevrimiciMi = isOnline;
+            
+            
+            if (kisilerModal.classList.contains("modal-acik")) {
+                kisileriEkranaCiz(aktifKisilerVerisi);
+            }
+        }
+    });
     connection.start()
         .then(() => console.log("✅ SignalR Başarıyla Bağlandı!"))
         .catch(err => console.error("🚨 SignalR Bağlantı Hatası: ", err));
@@ -760,6 +771,103 @@ ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
         document.addEventListener("click", (e) => {
             if (emojiContainer.style.display === "block" && !emojiContainer.contains(e.target) && e.target !== btnEmoji) {
                 emojiContainer.style.display = "none";
+            }
+        });
+    }
+    // =========================================================
+    // --- KİŞİLER LİSTESİ VE ÇEVRİMİÇİ DURUMU ---
+    // =========================================================
+    
+    const btnKisilerListele = document.getElementById("btn-kisiler-listele");
+    const kisilerModal = document.getElementById("kisiler-modal");
+    const kisilerModalKapat = document.getElementById("kisiler-modal-kapat");
+    const kisilerListesiContainer = document.getElementById("kisiler-listesi-container");
+    const kisilerAraInput = document.getElementById("kisiler-ara-input");
+    
+    let aktifKisilerVerisi = []; 
+
+    if (btnKisilerListele) {
+        btnKisilerListele.addEventListener("click", async () => {
+            kisilerModal.style.display = "block"; // Modalı aç
+            kisilerListesiContainer.innerHTML = "<p style='text-align:center;'>Kişiler yükleniyor...</p>";
+
+            try {
+                
+                const response = await fetch("/api/kullanicilar", { 
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    aktifKisilerVerisi = await response.json();
+                    kisileriEkranaCiz(aktifKisilerVerisi);
+                } else {
+                    kisilerListesiContainer.innerHTML = "<p style='color:red;'>Kişiler alınamadı.</p>";
+                }
+            } catch (error) {
+                kisilerListesiContainer.innerHTML = "<p style='color:red;'>Bağlantı hatası.</p>";
+            }
+        });
+    }
+
+    if (kisilerModalKapat) {
+        kisilerModalKapat.addEventListener("click", () => {
+            kisilerModal.style.display = "none";
+            if(kisilerAraInput) kisilerAraInput.value = "";
+        });
+    }
+
+    if (kisilerAraInput) {
+        kisilerAraInput.addEventListener("input", (e) => {
+            const aranan = e.target.value.toLowerCase().trim();
+            const filtrelenmis = aktifKisilerVerisi.filter(k => 
+                (k.adSoyad || k.AdSoyad || "").toLowerCase().includes(aranan)
+            );
+            kisileriEkranaCiz(filtrelenmis);
+        });
+    }
+
+    function kisileriEkranaCiz(kisilerArray) {
+        kisilerListesiContainer.innerHTML = "";
+        if (kisilerArray.length === 0) {
+            kisilerListesiContainer.innerHTML = "<p style='text-align:center; color:#888;'>Kişi bulunamadı.</p>";
+            return;
+        }
+
+        kisilerArray.forEach(k => {
+            const isim = k.adSoyad || k.AdSoyad || k.adsoyad || "İsimsiz";
+            const isOnline = k.cevrimiciMi || k.CevrimiciMi || false; 
+            
+            const durumRengi = isOnline ? "#25D366" : "#8696a0"; // WhatsApp Yeşili veya Gri
+            const durumYazisi = isOnline ? "Çevrimiçi" : "Çevrimdışı";
+
+            kisilerListesiContainer.innerHTML += `
+                <div style="display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f2f5;">
+                    <div style="position: relative;">
+                        <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" style="width: 45px; height: 45px; border-radius: 50%;">
+                        <span style="position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background-color: ${durumRengi}; border: 2px solid white; border-radius: 50%;"></span>
+                    </div>
+                    <div style="margin-left: 15px; display: flex; flex-direction: column;">
+                        <span style="font-size: 16px; font-weight: 500; color: #111b21;">${isim}</span>
+                        <span style="font-size: 13px; color: ${durumRengi};">${durumYazisi}</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // =========================================================
+    // SİHİRLİ KISIM: SIGNALR İLE ANLIK DURUM GÜNCELLEMESİ YAKALAMA
+    // =========================================================
+    if (connection) {
+        connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
+            const kisiIndex = aktifKisilerVerisi.findIndex(k => k.id === kullaniciId || k.Id === kullaniciId);
+            if (kisiIndex !== -1) {
+                aktifKisilerVerisi[kisiIndex].cevrimiciMi = isOnline;
+                
+               
+                if (kisilerModal.style.display === "block") {
+                    kisileriEkranaCiz(aktifKisilerVerisi);
+                }
             }
         });
     }

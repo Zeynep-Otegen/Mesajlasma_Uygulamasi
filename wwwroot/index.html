@@ -28,7 +28,7 @@
                 </div>
                 
                 <div class="header-icons">
-                    <i class="fas fa-users" title="Kullanıcıları Listele"></i>
+                    <i class="fas fa-users" title="Kullanıcıları Listele" id="btn-kisiler-listele" style="cursor: pointer;"></i>
                     <i class="fas fa-cog" id="btn-ayarlar" title="TTS Ayarları"></i>
                     <i class="fas fa-sign-out-alt" id="logout-btn" title="Çıkış Yap" style="color: #e53935; cursor: pointer;"></i>
                 </div>
@@ -185,7 +185,20 @@
     </div>
 </div>
 
-    <!-- JS dosyasının sonuna da ?v=2 ekledik ki en güncel hali yüklensin -->
+    <!-- KİŞİLER LİSTESİ MODALI -->
+<div id="kisiler-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 25px rgba(0,0,0,0.3); z-index: 2000; width: 400px; max-height: 80vh; overflow-y: auto;">
+    <span id="kisiler-modal-kapat" style="float: right; cursor: pointer; font-size: 24px; color: #555;">&times;</span>
+    <h3 style="margin-bottom: 15px; color: #111b21;">Kişiler</h3>
+    
+    <div class="search-input" style="margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; padding: 5px; display: flex; align-items: center;">
+        <i class="fas fa-search" style="margin-left: 5px; color: #888;"></i>
+        <input type="text" id="kisiler-ara-input" placeholder="Kişilerde ara..." style="border: none; outline: none; padding: 8px; width: 100%;">
+    </div>
+
+    <div id="kisiler-listesi-container">
+        <!-- JS ile kişiler buraya gelecek -->
+    </div>
+</div>
     <script src="app.js?v=2"></script>
 </body>
 </html>
