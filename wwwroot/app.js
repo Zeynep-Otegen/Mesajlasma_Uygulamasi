@@ -333,7 +333,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Gönderen kişinin adını varsa alıyoruz
                     const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
 
-                    ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi);
+                    const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
+                    ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink);
                 });
             } else {
                 messagesContainer.innerHTML = "<p style='text-align:center; color:red; margin-top:20px;'>Mesajlar alınamadı.</p>";
@@ -344,7 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     
-    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "") {
+    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null) {
         if (!text || text.trim() === "") return;
 
         const messageDiv = document.createElement("div");
@@ -353,14 +354,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let isimHtml = (!isSent && gonderenKisi) ? `<span style="font-size:11px; font-weight:bold; color:#008069; display:block; margin-bottom:3px;">${gonderenKisi}</span>` : "";
 
-        // FontAwesome hoparlör ikonu (sadece metin varsa gösterilir)
+        // FontAwesome hoparlör ikonu
         let sesIkonu = `<i class="fas fa-volume-up btn-seslendir" style="cursor:pointer; color:#888; font-size:13px; margin-left:10px;" title="Bu mesajı seslendir"></i>`;
+
+        // YENİ EKLENEN: EĞER DOSYA VARSA ŞIK BİR İNDİRME KUTUSU OLUŞTUR
+        let dosyaHtml = "";
+        if (dosyaYolu) {
+            // Linkteki guid'li uzun isimden sadece dosya uzantısını veya adını çıkarmak için ufak bir ayar
+            const dosyaAdi = dosyaYolu.split('/').pop() || "Ekli Dosya";
+            
+            dosyaHtml = `
+                <div style="margin-top: 8px; padding: 8px; background-color: rgba(0,0,0,0.05); border-radius: 6px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-file-download" style="color: #008069; font-size: 20px;"></i>
+                    <a href="${dosyaYolu}" target="_blank" style="text-decoration: none; color: #111b21; font-weight: 500; font-size: 13px; word-break: break-all;">
+                        ${dosyaAdi}
+                    </a>
+                </div>
+            `;
+        }
 
         messageDiv.innerHTML = `
             ${isimHtml}
-            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                <p style="margin: 0; flex: 1;">${text}</p>
-                ${sesIkonu}
+            <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <p style="margin: 0; flex: 1;">${text}</p>
+                    ${sesIkonu}
+                </div>
+                ${dosyaHtml} <!-- DOSYA KUTUSUNU BURAYA BASTIK -->
             </div>
             <span class="msg-time">${timeString}</span>
         `;
@@ -368,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Tıklama Olayı: Kullanıcı hoparlöre basarsa metni seslendir
         const btnSes = messageDiv.querySelector('.btn-seslendir');
         btnSes.addEventListener('click', () => {
-            metniSeslendir(text); // Ana TTS fonksiyonunu çağırıyoruz
+            metniSeslendir(text); 
         });
 
         messagesContainer.appendChild(messageDiv);
@@ -382,7 +402,8 @@ document.addEventListener("DOMContentLoaded", () => {
         
         console.log("📝 Gönderim tetiklendi! Yazılan Mesaj:", metin, "| Aktif Sohbet ID:", aktifSohbetId);
 
-        if (!metin) return;
+        // Eğer ne metin yazılmış ne de dosya seçilmişse işlemi durdur
+        if (!metin && !seciliDosya) return;
         
         if (!aktifSohbetId) {
             alert("Lütfen mesaj göndermeden önce sol taraftan bir sohbete tıklayın!");
@@ -390,7 +411,46 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         messageInput.value = ""; // Kutuyu temizle
+        let yuklenenDosyaYolu = null;
 
+        // ==========================================
+        // 1. ADIM: EĞER DOSYA SEÇİLMİŞSE ÖNCE ONU YÜKLE
+        // ==========================================
+        if (seciliDosya) {
+            const formData = new FormData();
+            formData.append("file", seciliDosya);
+            formData.append("sohbetId", aktifSohbetId);
+            formData.append("gonderenId", benimKullaniciIdm);
+
+            try {
+                // DosyalarController'a dosyayı fırlatıyoruz
+                const uploadRes = await fetch("/api/dosyalar/yukle", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${token}` },
+                    body: formData // DİKKAT: JSON değil FormData gönderiyoruz
+                });
+                
+                if (uploadRes.ok) {
+                    const sonuc = await uploadRes.json();
+                    yuklenenDosyaYolu = sonuc.dosyaYolu; // Sunucudan gelen "/uploads/xyz.jpg" linkini aldık!
+                    
+                    // Yükleme bitince önizleme kutusunu temizleyip kapatıyoruz
+                    seciliDosya = null;
+                    const dosyaOnizlemeKutusu = document.getElementById("dosya-onizleme-kutusu");
+                    if (dosyaOnizlemeKutusu) dosyaOnizlemeKutusu.style.display = "none";
+                } else {
+                    alert("Dosya sunucuya yüklenirken bir hata oluştu.");
+                    return; // Dosya yüklenemezse mesajı da yollama, işlemi durdur
+                }
+            } catch (error) {
+                console.error("Dosya yükleme hatası:", error);
+                return;
+            }
+        }
+
+        // ==========================================
+        // 2. ADIM: METNİ VE DOSYA YOLUNU VERİTABANINA KAYDET
+        // ==========================================
         try {
             const apiAdresi = "/api/mesajlar"; 
             const response = await fetch(apiAdresi, {
@@ -401,20 +461,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 },
                 body: JSON.stringify({
                     sohbetid: parseInt(aktifSohbetId),
-                    icerik: metin,
+                    icerik: metin || "📁 Dosya gönderildi", // Metin boşsa ekranda bu yazsın
                     gonderenid: benimKullaniciIdm, 
-                    gondermeTarihi: new Date().toISOString() 
+                    gondermeTarihi: new Date().toISOString(),
+                    dosyaYolu: yuklenenDosyaYolu // Az önce aldığımız dosya linkini C#'a iletiyoruz
                 })
             });
 
             if (response.ok) {
                 const suAn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                ekranaMesajEkle(metin, true, suAn);
+                
+                
+                // 4. parametre boş isim (""), 5. parametre dosya yoludur
+ekranaMesajEkle(metin || "📁 Dosya gönderildi", true, suAn, "", yuklenenDosyaYolu);
 
                 // YENİ: Kendi gönderdiğimiz mesajı okuma senaryosu
                 const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
                 if (zorlaOku || (ayarlar && ayarlar.otomatikOku === true)) {
-                    metniSeslendir(metin);
+                    metniSeslendir(metin || "Dosya gönderildi");
                 }
             } else {
                 console.error("🚨 API Hatası:", await response.text());
@@ -455,7 +519,8 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
             
-            ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi);
+            const dosyaLink = mesaj.dosyaYolu || mesaj.DosyaYolu || null;
+ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
             
             // YENİ: Karşıdan mesaj gelince Otomatik Oku açıksa seslendir
             const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
@@ -631,5 +696,72 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+   // =========================================================
+    // --- DOSYA PAYLAŞMA & ÖNİZLEME İŞLEMLERİ ---
+    // =========================================================
+
+    const btnAtac = document.getElementById("btn-atac");
+    const gizliDosyaSecici = document.getElementById("gizli-dosya-secici");
+    const dosyaOnizlemeKutusu = document.getElementById("dosya-onizleme-kutusu");
+    const onizlemeDosyaAdi = document.getElementById("onizleme-dosya-adi");
+    const btnOnizlemeKapat = document.getElementById("btn-onizleme-kapat");
+    
+    let seciliDosya = null; 
+
+    if (btnAtac && gizliDosyaSecici) {
+        btnAtac.addEventListener("click", () => gizliDosyaSecici.click());
+
+        gizliDosyaSecici.addEventListener("change", (e) => {
+            seciliDosya = e.target.files[0];
+            if (!seciliDosya) return;
+
+           
+            onizlemeDosyaAdi.textContent = seciliDosya.name;
+            dosyaOnizlemeKutusu.style.display = "block";
+            
+            
+            gizliDosyaSecici.value = ""; 
+        });
+    }
+
+    if (btnOnizlemeKapat) {
+        btnOnizlemeKapat.addEventListener("click", () => {
+            seciliDosya = null; // Hafızadan sil
+            dosyaOnizlemeKutusu.style.display = "none"; // Kutuyu kapat
+        });
+    }
+    // =========================================================
+    // --- EMOJİ SEÇİCİ İŞLEMLERİ ---
+    // =========================================================
+    
+    const btnEmoji = document.getElementById("btn-emoji");
+    const emojiContainer = document.getElementById("emoji-picker-container");
+    const picker = document.querySelector("emoji-picker");
+
+    if (btnEmoji && emojiContainer && picker) {
+        // paneli aç/kapat
+        btnEmoji.addEventListener("click", (e) => {
+            e.stopPropagation(); 
+            if (emojiContainer.style.display === "none") {
+                emojiContainer.style.display = "block";
+            } else {
+                emojiContainer.style.display = "none";
+            }
+        });
+
+       
+        picker.addEventListener("emoji-click", (e) => {
+            const secilenEmoji = e.detail.unicode; 
+            messageInput.value += secilenEmoji;    
+            messageInput.focus();                 
+        });
+
+      
+        document.addEventListener("click", (e) => {
+            if (emojiContainer.style.display === "block" && !emojiContainer.contains(e.target) && e.target !== btnEmoji) {
+                emojiContainer.style.display = "none";
+            }
+        });
+    }
 }); 
 
