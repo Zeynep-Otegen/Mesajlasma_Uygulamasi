@@ -1,3 +1,27 @@
+/* ============================================================
+   MODERN AUTH TEMASI  (Giriş / Kayıt)
+   - Sadece görünüm yenilendi, HTML class/id yapısı korundu.
+   - Bu dosyayı projendeki auth.css ile birebir değiştirebilirsin.
+   ============================================================ */
+
+:root {
+    /* Ana renk paleti (canlı indigo/mavi) */
+    --brand: #4c6ef5;
+    --brand-dark: #3b5bdb;
+    --brand-soft: #eef1ff;
+
+    /* Nötrler */
+    --ink: #1e2233;
+    --muted: #7a8194;
+    --line: #e4e7ef;
+    --surface: #ffffff;
+
+    --danger: #e5484d;
+
+    --radius: 16px;
+    --shadow: 0 20px 45px -20px rgba(43, 55, 105, 0.35);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -6,11 +30,16 @@
 }
 
 body {
-    background-color: #f0f2f5; /* WhatsApp arka plan grisi */
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
+    padding: 20px;
+    /* Yumuşak, canlı ama açık tonlu arka plan */
+    background:
+        radial-gradient(circle at 15% 20%, rgba(76, 110, 245, 0.18), transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(56, 178, 172, 0.16), transparent 45%),
+        #f4f6fc;
 }
 
 .auth-container {
@@ -21,92 +50,135 @@ body {
 }
 
 .auth-box {
-    background-color: #ffffff;
-    padding: 40px;
-    border-radius: 10px;
+    position: relative;
+    background-color: var(--surface);
+    padding: 44px 40px;
+    border-radius: var(--radius);
     width: 100%;
     max-width: 420px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow);
     text-align: center;
+    border: 1px solid var(--line);
+    /* Açılış animasyonu */
+    animation: authIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes authIn {
+    from { opacity: 0; transform: translateY(18px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Üstte küçük marka rozeti */
+.auth-box::before {
+    content: "💬";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 18px;
+    font-size: 26px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+    box-shadow: 0 10px 20px -8px rgba(76, 110, 245, 0.7);
 }
 
 .auth-box h2 {
-    color: #111b21;
+    color: var(--ink);
     margin-bottom: 8px;
+    font-size: 24px;
+    letter-spacing: -0.3px;
 }
 
 .auth-box p {
-    color: #667781;
-    margin-bottom: 25px;
+    color: var(--muted);
+    margin-bottom: 28px;
     font-size: 14px;
+    line-height: 1.5;
 }
 
 .input-group {
     text-align: left;
-    margin-bottom: 15px;
+    margin-bottom: 16px;
 }
 
 .input-group label {
     display: block;
-    font-size: 14px;
-    color: #008069;
-    margin-bottom: 5px;
-    font-weight: 500;
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 7px;
+    font-weight: 600;
 }
 
 .input-group input {
     width: 100%;
-    padding: 12px;
-    border: 1px solid #d1d7db;
-    border-radius: 6px;
+    padding: 13px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
     outline: none;
     font-size: 15px;
-    background-color: #f8f9fa;
-    transition: 0.3s;
+    color: var(--ink);
+    background-color: #f8f9fd;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.input-group input::placeholder { color: #aab0c0; }
+
 .input-group input:focus {
-    border-color: #008069;
-    background-color: #ffffff;
+    border-color: var(--brand);
+    background-color: var(--surface);
+    box-shadow: 0 0 0 4px rgba(76, 110, 245, 0.15);
 }
 
 .auth-btn {
     width: 100%;
     padding: 14px;
-    background-color: #008069;
-    color: white;
+    background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+    color: #ffffff;
     border: none;
-    border-radius: 6px;
+    border-radius: 12px;
     font-size: 16px;
-    font-weight: bold;
+    font-weight: 700;
     cursor: pointer;
-    margin-top: 15px;
-    transition: 0.3s;
+    margin-top: 10px;
+    letter-spacing: 0.2px;
+    box-shadow: 0 12px 24px -10px rgba(76, 110, 245, 0.75);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
 .auth-btn:hover {
-    background-color: #016b58;
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 18px 30px -12px rgba(76, 110, 245, 0.85);
+}
+
+.auth-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 16px -8px rgba(76, 110, 245, 0.7);
 }
 
 .auth-switch {
-    margin-top: 20px;
+    margin-top: 22px;
     font-size: 14px;
-    color: #54656f;
+    color: var(--muted);
 }
 
 .auth-switch a {
-    color: #008069;
+    color: var(--brand);
     text-decoration: none;
     font-weight: 600;
+    transition: color 0.15s ease;
 }
 
 .auth-switch a:hover {
+    color: var(--brand-dark);
     text-decoration: underline;
 }
 
 .error-msg {
-    color: #e53935;
-    margin-top: 15px;
+    color: var(--danger);
+    margin-top: 16px;
     font-size: 14px;
     font-weight: 500;
+    min-height: 18px;
 }
