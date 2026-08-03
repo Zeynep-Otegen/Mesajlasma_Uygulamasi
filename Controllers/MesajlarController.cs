@@ -59,6 +59,7 @@ public class MesajlarController : ControllerBase
         
         try
         {
+            yeniMesaj.gondermeTarihi = DateTime.Now;
             // Veritabanına kaydetmesi için Servis katmanına gönderiliyor
             _mesajService.MesajGonder(yeniMesaj);
 

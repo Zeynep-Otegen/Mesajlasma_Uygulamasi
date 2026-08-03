@@ -7,27 +7,28 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using STAJ1.Hubs;
-using Microsoft.EntityFrameworkCore; // Veritabanı bağlantısı için eklendi
+using Microsoft.EntityFrameworkCore; 
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 // Güvenlik maskesini kaldırıp gerçek token verilerini ve hatalarını terminale yazdırması için:
 Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
 
-// 1. Controller (API) sistemini projeye dahil ediyoruz
+
 builder.Services.AddControllers();
-builder.Services.AddHttpClient();//HTTP istekleri için
+builder.Services.AddHttpClient();
 builder.Services.AddSignalR();
 
-// VERİTABANI BAĞLANTISI (Gizli appsettings.json dosyasından alınıyor)
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<UygulamaDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// appsettings.json içindeki gizli JWT bilgilerini okuyoruz
+
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
 
-// Güvenlik görevlisine biletin sahte olup olmadığını nasıl anlayacağını öğretiyoruz
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -56,7 +57,7 @@ builder.Services.AddAuthentication(options =>
         
         OnMessageReceived = context =>
         {
-            // YENİ EKLENEN AJAN KOD: Kapıya gelen isteğin içindeki Authorization başlığını olduğu gibi yazdır
+            //Gelen isteğin içindeki Authorization başlığını olduğu gibi yazdırma
             var gelenBaslik = context.Request.Headers["Authorization"].ToString();
             if (!string.IsNullOrEmpty(gelenBaslik))
             {
@@ -77,7 +78,7 @@ builder.Services.AddAuthentication(options =>
 });
 
 
-// 2. Kiler ve Aşçı ekibimizi sisteme kaydediyoruz (Dependency Injection)
+//Dependency Injection (Arayüzeleri ekleme)
 
 builder.Services.AddScoped<IKullaniciService, KullaniciService>();
 // Sisteme Jenerik Kilerimizi tanıtıyoruz:
@@ -93,12 +94,12 @@ builder.Services.AddScoped<ISohbetService, SohbetService>();
 
 var app = builder.Build();
 
-app.UseAuthentication(); // YENİ EKLENEN: Önce kimlik (bilet) kontrolü
-app.UseAuthorization();  // ZATEN VARDI: Sonra yetki kontrolü
+app.UseAuthentication(); //Önce kimlik kontrolü
+app.UseAuthorization();  //Sonra yetki kontrolü
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
-// Onun yerine Controller sınıflarını otomatik bulup haritalayan bu kodu ekliyoruz:
+
 app.MapControllers();
 app.MapHub<STAJ1.Hubs.ChatHub>("/chathub");
 

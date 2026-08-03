@@ -15,4 +15,7 @@ public class SohbetKatilimci
 
     [Column("katilmatarihi")]
     public DateTime katilmaTarihi { get; set; }
+
+    [Column("sonokumatarihi")]
+    public DateTime? SonOkumaTarihi { get; set; }
 }

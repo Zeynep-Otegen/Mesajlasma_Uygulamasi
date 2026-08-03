@@ -36,7 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    
     // 2. SOHBETLERİ GETİR
+   
     async function sohbetleriGetir() {
         try {
             const temizToken = token.replace(/[^A-Za-z0-9\-_.]/g, "");
@@ -78,15 +80,47 @@ document.addEventListener("DOMContentLoaded", () => {
                     chatItem.classList.add("chat-item");
                     chatItem.dataset.id = sohbet.id; 
 
+                    //Rozet HTML'i (Sadece 1 kez tanımlandı)
+                    const badgeHtml = sohbet.okunmamisMesajSayisi > 0 
+                        ? `<div class="unread-badge">${sohbet.okunmamisMesajSayisi}</div>` 
+                        : "";
+
+                   
+                    
+        //WHATSAPP STİLİ ÖNİZLEME (35 Karakter Sınırı)
+let onizleme = sohbet.sonMesajIcerik || "Henüz mesaj yok...";
+
+if (onizleme !== "Henüz mesaj yok...") {
+    
+    const gidenMesajId = sohbet.sonMesajGonderenId || sohbet.SonMesajGonderenId || 0;
+    
+    
+    if (Number(gidenMesajId) === Number(kullaniciId) && Number(gidenMesajId) !== 0) {
+        onizleme = `Siz: ${onizleme}`;
+    } 
+   
+    else if (sohbet.grupmu && sohbet.sonMesajGonderenAd) {
+        let kisaAd = sohbet.sonMesajGonderenAd.split(' ')[0];
+        onizleme = `~${kisaAd}: ${onizleme}`;
+    }
+}
+
+if (onizleme.length > 35) {
+    onizleme = onizleme.substring(0, 35) + "...";
+}
+                   
                     chatItem.innerHTML = `
                         <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
                         <div class="chat-details">
                             <div class="chat-title">
                                 <h4>${sohbet.grupadi || sohbet.grupAdi || sohbet.GrupAdi || "İsimsiz Sohbet"}</h4>
-                                <span class="time">-</span>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                    <span class="time">-</span>
+                                    ${badgeHtml}
+                                </div>
                             </div>
                             <div class="chat-last-message">
-                                <p>Sohbete katılmak için tıklayın...</p>
+                                <p>${onizleme}</p>
                             </div>
                         </div>
                     `;
@@ -133,12 +167,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-   // 1. Kullanıcıları Getiren Fonksiyon (Güncellendi)
+   //Kullanıcıları Getiren Fonksiyon (Güncellendi)
     async function sistemdekiKullanicilariGetir() {
         try {
             console.log("📡 Kullanıcı listesi için API'ye istek atılıyor...");
             
-            // DİKKAT: Eğer Controller adın KullaniciController ise burayı /api/kullanici/grup-icin-liste yapmalısın.
+            
             const response = await fetch("/api/kullanicilar/grup-icin-liste", {
                 headers: { "Authorization": `Bearer ${token}` }
             });
@@ -155,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // 2. Listeyi Ekrana Basan Fonksiyon (Büyük/Küçük harf duyarlılığı giderildi)
+   
     function kullaniciListesiniEkranaBas(liste) {
         listContainer.innerHTML = "";
         if(liste.length === 0) {
@@ -164,7 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         liste.forEach(k => {
-            // C#'tan AdSoyad (büyük) veya adsoyad (küçük) gelebilir, ikisini de yakalıyoruz
             const isim = k.adsoyad || k.AdSoyad || "İsimsiz";
             const email = k.eposta || k.Eposta || "E-posta yok";
             const id = k.id || k.Id;
@@ -179,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 3. Arama Çubuğu (Büyük/Küçük harf duyarlılığı giderildi)
+    //Büyük/Küçük harf duyarlılığı giderildi
     if (aramaInput) {
         aramaInput.addEventListener("input", (e) => {
             const arananKelime = e.target.value.toLowerCase().trim();
@@ -251,6 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
     benimKullaniciIdm = kendiIdmiAl();
 
     //Sol Menüden Bir Sohbete Tıklanması Dinleme
+    
     chatList.addEventListener("click", async (e) => {
         const chatItem = e.target.closest(".chat-item");
         if (!chatItem) return; // Tıklanan yer sohbet kutusu değilse boşver
@@ -273,11 +307,29 @@ document.addEventListener("DOMContentLoaded", () => {
             gruptakiKisileriGetir(aktifSohbetId); // Yeni metodumuzu burada çağırıyoruz
         }
 
+        //Tıklanan sohbette okunmamış mesaj rozeti varsa DOM'dan anında sil
+        const badge = chatItem.querySelector(".unread-badge");
+        if (badge) {
+            badge.remove();
+        }
+
+        // YENİ YAZISINI TEMİZLE
+        const p = chatItem.querySelector(".chat-last-message p");
+        if (p && p.innerHTML.includes("Yeni:")) {
+            p.innerHTML = p.innerHTML.replace(/<span.*?>Yeni:<\/span>\s*/, "");
+        }
+
+        // Sunucuya okundu işareti atma isteği gönderme
+        fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        }).catch(err => console.error("Okundu işaretlenirken hata:", err));
+        
         // Sohbet mesajlarını getirme ve ekrana yansıtma
         await mesajlariGetir(aktifSohbetId);
     });
 
-    // YENİ EKLENEN METOT: Gruba Ait Kişileri Getirme Fonksiyonu
+    
     async function gruptakiKisileriGetir(sohbetId) {
         try {
             const response = await fetch(`/api/sohbetler/${sohbetId}/katilimcilar`, {
@@ -286,8 +338,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (response.ok) {
                 const kisiler = await response.json();
-                // Gelen isimleri virgülle yan yana yazdır
-                const isimListesi = kisiler.map(k => k.adsoyad || k.AdSoyad).join(", ");
+                
+                
+                const isimListesi = kisiler.map(k => {
+                    const kisiId = k.id || k.Id;
+                   
+                    if (Number(kisiId) === Number(benimKullaniciIdm)) {
+                        return "Siz";
+                    }
+                    return k.adsoyad || k.AdSoyad;
+                }).join(", ");
+                
                 document.getElementById("chat-header-members").textContent = isimListesi;
             } else {
                 document.getElementById("chat-header-members").textContent = "";
@@ -297,7 +358,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    //Mesajları getirme ve yansıtma
     async function mesajlariGetir(sohbetId) {
         messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Mesajlar yükleniyor...</p>";
         
@@ -330,7 +390,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         saatString = tarihObje.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     }
 
-                    // Gönderen kişinin adını varsa alıyoruz
+                   
                     const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
 
                     const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
@@ -354,13 +414,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let isimHtml = (!isSent && gonderenKisi) ? `<span style="font-size:11px; font-weight:bold; color:#008069; display:block; margin-bottom:3px;">${gonderenKisi}</span>` : "";
 
-        // FontAwesome hoparlör ikonu
+      
         let sesIkonu = `<i class="fas fa-volume-up btn-seslendir" style="cursor:pointer; color:#888; font-size:13px; margin-left:10px;" title="Bu mesajı seslendir"></i>`;
 
-        // YENİ EKLENEN: EĞER DOSYA VARSA ŞIK BİR İNDİRME KUTUSU OLUŞTUR
+        
         let dosyaHtml = "";
         if (dosyaYolu) {
-            // Linkteki guid'li uzun isimden sadece dosya uzantısını veya adını çıkarmak için ufak bir ayar
+          
             const dosyaAdi = dosyaYolu.split('/').pop() || "Ekli Dosya";
             
             dosyaHtml = `
@@ -464,7 +524,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     icerik: metin || "📁 Dosya gönderildi", // Metin boşsa ekranda bu yazsın
                     gonderenid: benimKullaniciIdm, 
                     gondermeTarihi: new Date().toISOString(),
-                    dosyaYolu: yuklenenDosyaYolu // Az önce aldığımız dosya linkini C#'a iletiyoruz
+                    dosyaYolu: yuklenenDosyaYolu // Alınan dosya linkini veritabaanına kaydetme
                 })
             });
 
@@ -472,13 +532,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 const suAn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 
                 
-                // 4. parametre boş isim (""), 5. parametre dosya yoludur
-ekranaMesajEkle(metin || "📁 Dosya gönderildi", true, suAn, "", yuklenenDosyaYolu);
+                
+                ekranaMesajEkle(metin || "📁 Dosya gönderildi", true, suAn, "", yuklenenDosyaYolu);
 
-                // YENİ: Kendi gönderdiğimiz mesajı okuma senaryosu
+const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${aktifSohbetId}']`);
+if (solSohbetKutusu) {
+    const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
+    if (sonMesajP) {
+        sonMesajP.innerHTML = `Siz: ${metin || "📁 Dosya"}`;
+    }
+    // Sohbeti listesinin en üstüne al
+    const chatListContainer = document.getElementById("chat-list");
+    if (chatListContainer) chatListContainer.prepend(solSohbetKutusu);
+}
+
+                //Kendi gönderdiğimiz mesajı okuma senaryosu
                 const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
                 if (zorlaOku || (ayarlar && ayarlar.otomatikOku === true)) {
                     metniSeslendir(metin || "Dosya gönderildi");
+                                          
                 }
             } else {
                 console.error("🚨 API Hatası:", await response.text());
@@ -505,27 +577,69 @@ ekranaMesajEkle(metin || "📁 Dosya gönderildi", true, suAn, "", yuklenenDosya
         const gonderenId = mesaj.gonderenid || mesaj.Gonderenid || mesaj.kullaniciid;
         const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
 
+        const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
+        const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
+        
+        let saatString = "";
+        if (hamTarih) {
+            const tarihObje = new Date(hamTarih);
+            saatString = tarihObje.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+            saatString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
+        const dosyaLink = mesaj.dosyaYolu || mesaj.DosyaYolu || null;
+
         if (mesaj.sohbetid == aktifSohbetId && !benMiyim) {
-            const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
-            const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
+            //KULLANICI ŞU AN MESAJIN GELDİĞİ SOHBETİN İÇİNDE
+            ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
             
-            let saatString = "";
-            if (hamTarih) {
-                const tarihObje = new Date(hamTarih);
-                saatString = tarihObje.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            } else {
-                saatString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            }
-            
-            const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
-            
-            const dosyaLink = mesaj.dosyaYolu || mesaj.DosyaYolu || null;
-ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
-            
-            // YENİ: Karşıdan mesaj gelince Otomatik Oku açıksa seslendir
+            // Mesajı anında gördüğü için arka planda saati hemen güncelleyelim ki rozet oluşmasın
+            fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            }).catch(err => console.error(err));
+
+            // Sesli okuma açıksa oku
             const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
             if (ayarlar && ayarlar.otomatikOku === true) {
                 metniSeslendir(metin);
+            }
+        } 
+        else if (!benMiyim) {
+            //KULLANICI BAŞKA BİR SOHBETTE VEYA BEKLEMEDE (DİNAMİK ROZET)
+            const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${mesaj.sohbetid}']`);
+            
+            if (solSohbetKutusu) {
+                
+                const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
+                if (sonMesajP) {
+                    //Gönderen kişinin sadece ilk ismini al
+                    let kisaAd = gonderenKisiAdi.split(' ')[0];
+                    
+                    // F5'teki görünümün aynısını dinamik olarak basıyoruz. 
+                    // Okunmamış olduğunu vurgulamak için markanın rengini ve kalın fontu koruduk.
+                    sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${metin}`;
+                }
+
+                // Rozet kontrolü ve sayım artırma
+                let rozet = solSohbetKutusu.querySelector(".unread-badge");
+                if (rozet) {
+                    let mevcutSayi = parseInt(rozet.textContent) || 0;
+                    rozet.textContent = mevcutSayi + 1;
+                } else {
+                    const titleDiv = solSohbetKutusu.querySelector(".chat-title > div");
+                    if (titleDiv) {
+                        titleDiv.innerHTML += `<div class="unread-badge">1</div>`;
+                    }
+                }
+
+               
+                const chatListContainer = document.getElementById("chat-list");
+                if (chatListContainer) {
+                    chatListContainer.prepend(solSohbetKutusu);
+                }
             }
         }
     });

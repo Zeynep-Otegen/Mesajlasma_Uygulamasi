@@ -16,15 +16,18 @@ public class SohbetlerController : ControllerBase
     private readonly ISohbetService _sohbetService;
     private readonly IKullaniciService _kullaniciService; 
     private readonly IGenericRepository<SohbetKatilimci> _katilimciRepo; 
+    private readonly IGenericRepository<Mesaj> _mesajRepo;
 
     public SohbetlerController(
         ISohbetService sohbetService, 
         IKullaniciService kullaniciService, 
-        IGenericRepository<SohbetKatilimci> katilimciRepo)
+        IGenericRepository<SohbetKatilimci> katilimciRepo,
+        IGenericRepository<Mesaj> mesajRepo)
     {
         _sohbetService = sohbetService;
         _kullaniciService = kullaniciService;
         _katilimciRepo = katilimciRepo;
+        _mesajRepo = mesajRepo;
     }
 
     [HttpPost("olustur")]
@@ -70,7 +73,7 @@ public class SohbetlerController : ControllerBase
             {
                 grupadi = request.GrupAdi, 
                 grupmu = true,
-                olusturmaTarihi = DateTime.UtcNow
+                olusturmaTarihi = DateTime.Now
             };
 
             var olusturulanSohbet = _sohbetService.SohbetOlustur(yeniSohbet);
@@ -101,44 +104,65 @@ public class SohbetlerController : ControllerBase
     {
         try
         {
-            // 1. Kullanıcının tüm sohbetlerini getir
             var sohbetler = _sohbetService.KullanicininSohbetleriniGetir(kullaniciId);
-            
-            // 2. İsim bulmak için katılımcı ve kullanıcı listelerini çek
             var tumKatilimcilar = _katilimciRepo.HepsiniGetir();
             var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
+            var tumMesajlar = _mesajRepo.HepsiniGetir(); 
 
-            //Grup mu Birebir mi
             var dinamikSohbetListesi = sohbetler.Select(s => 
             {
-                string ekranaYazilacakAd = s.grupadi; // Varsayılan olarak kendi adını al
+                string ekranaYazilacakAd = s.grupadi; 
 
-                
                 if (!s.grupmu) 
                 {
-                    
                     var digerKisininKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid != kullaniciId);
-                    
                     if (digerKisininKaydi != null)
                     {
-                     
                         var digerKullanici = tumKullanicilar.FirstOrDefault(u => u.Id == digerKisininKaydi.kullaniciid);
-                        if (digerKullanici != null)
-                        {
-                            ekranaYazilacakAd = digerKullanici.AdSoyad; 
-                        }
+                        if (digerKullanici != null) ekranaYazilacakAd = digerKullanici.AdSoyad; 
                     }
                 }
 
+                var kullanicininKatilimKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid == kullaniciId);
+                DateTime? sonOkuma = kullanicininKatilimKaydi?.SonOkumaTarihi;
                 
+                var buSohbetinMesajlari = tumMesajlar.Where(m => m.sohbetid == s.id).OrderByDescending(m => m.gondermeTarihi).ToList();
+                var sonMesaj = buSohbetinMesajlari.FirstOrDefault();
+
+                int okunmamisSayisi = buSohbetinMesajlari
+                    .Count(m => m.gonderenid != kullaniciId && (sonOkuma == null || m.gondermeTarihi > sonOkuma));
+                
+                string sonMesajGonderen = "";
+                string onizlemeMetni = "Henüz mesaj yok...";
+
+                if (sonMesaj != null) 
+                {
+                     if (s.grupmu) 
+                     {
+                         sonMesajGonderen = tumKullanicilar.FirstOrDefault(u => u.Id == sonMesaj.gonderenid)?.AdSoyad ?? "";
+                     }
+                     
+                     onizlemeMetni = !string.IsNullOrWhiteSpace(sonMesaj.icerik) 
+                                     ? sonMesaj.icerik 
+                                     : "📁 Dosya gönderildi";
+                }
+
                 return new 
                 {
                     id = s.id,
                     grupmu = s.grupmu,
                     grupadi = ekranaYazilacakAd, 
-                    olusturmaTarihi = s.olusturmaTarihi
+                    olusturmaTarihi = s.olusturmaTarihi,
+                    okunmamisMesajSayisi = okunmamisSayisi,
+                    sonMesajIcerik = onizlemeMetni,
+                    sonMesajTarihi = sonMesaj != null ? sonMesaj.gondermeTarihi : s.olusturmaTarihi,
+                    sonMesajGonderenAd = sonMesajGonderen,
+                    // YENİ EKLENEN SATIR: JS'e bu mesajı kimin attığını ID olarak söylüyoruz
+                    sonMesajGonderenId = sonMesaj != null ? sonMesaj.gonderenid : 0 
                 };
-            }).ToList();
+            })
+            .OrderByDescending(x => x.sonMesajTarihi) 
+            .ToList();
 
             return Ok(dinamikSohbetListesi);
         }
@@ -148,7 +172,6 @@ public class SohbetlerController : ControllerBase
             return BadRequest($"Hata: {gercekHata}");
         }
     }
-
     [HttpGet("{sohbetId}/katilimcilar")]
     public IActionResult GruptakiKisileriGetir(int sohbetId)
     {
@@ -174,4 +197,39 @@ public class SohbetlerController : ControllerBase
             return BadRequest($"Hata: {gercekHata}");
         }
     }
+    
+[HttpPost("{sohbetId}/okundu-isaretle")]
+public IActionResult OkunduOlarakIsaretle(int sohbetId)
+{
+    try
+    {
+        // 1. ÇÖZÜM: ID'yi hem NameIdentifier'da hem de "sub" içinde arıyoruz!
+        var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                        ?? User.FindFirst("sub")?.Value;
+
+        if (string.IsNullOrEmpty(userIdString)) 
+            return Unauthorized("Kullanıcı kimliği doğrulanamadı.");
+            
+        var kullaniciId = int.Parse(userIdString);
+
+        var katilimci = _katilimciRepo.HepsiniGetir()
+            .FirstOrDefault(k => k.sohbetid == sohbetId && k.kullaniciid == kullaniciId);
+
+        if (katilimci != null)
+        {
+            
+            katilimci.SonOkumaTarihi = DateTime.Now;
+            
+            _katilimciRepo.Guncelle(katilimci); 
+            return Ok();
+        }
+        return BadRequest("Kullanıcı bu sohbette değil.");
+    }
+   catch (Exception ex)
+    {
+        // YENİ: Gerçek veritabanı hatasını yakalıyoruz!
+        var gercekHata = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+        return BadRequest($"GERÇEK HATA: {gercekHata}");
+    }
+}
 }
