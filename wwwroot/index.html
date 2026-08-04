@@ -37,18 +37,22 @@
             <div class="search-bar">
                 <div class="search-input">
                     <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Aratın veya yeni sohbet başlatın">
+                    <!-- SİHİRLİ DOKUNUŞ: id="left-search-input" EKLENDİ -->
+                    <input type="text" id="left-search-input" placeholder="Aratın veya yeni sohbet başlatın">
                 </div>
             </div>
             
-            <!-- Yeni Grup Butonu (Doğru Konumda) -->
+            <!-- Yeni Grup Butonu -->
             <div style="padding: 10px;">
                 <button id="btn-yeni-grup" class="yeni-grup-btn" style="width: 100%; border-radius: 5px;">
                     <i class="fas fa-plus"></i> Yeni Grup Oluştur
                 </button>
             </div>
 
-            <!-- Sohbet Listesi Konteyneri (İçindeki sahte veriler silindi, JS dolduracak) -->
+            <!-- ARAMA SONUÇLARI BURADA GÖRÜNECEK (Başlangıçta Gizli) -->
+            <div id="search-results-container" style="display:none; overflow-y:auto; height: 100%;"></div>
+
+            <!-- Sohbet Listesi Konteyneri -->
             <div class="chat-list" id="chat-list">
                 <!-- Sohbetler buraya dinamik gelecek -->
             </div>

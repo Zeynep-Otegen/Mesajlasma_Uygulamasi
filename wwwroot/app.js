@@ -285,49 +285,50 @@ if (onizleme.length > 35) {
 
     //Sol Menüden Bir Sohbete Tıklanması Dinleme
     
+    //Sol Menüden Bir Sohbete Tıklanması Dinleme
     chatList.addEventListener("click", async (e) => {
         const chatItem = e.target.closest(".chat-item");
-        if (!chatItem) return; // Tıklanan yer sohbet kutusu değilse boşver
+        if (!chatItem) return;
 
         // Görsel olarak seçili yap
         document.querySelectorAll(".chat-item").forEach(c => c.classList.remove("active"));
         chatItem.classList.add("active");
 
-        // Tıklanan sohbetin ID'sini ve Adını al
-        aktifSohbetId = chatItem.dataset.id;
+        const id = chatItem.dataset.id;
         const sohbetAdi = chatItem.querySelector("h4").textContent;
-
-        // Sağ üst köşedeki başlığı ve alt metni (Kişiler) güncelle
-        const titleEl = document.getElementById("chat-header-title");
-        const membersEl = document.getElementById("chat-header-members");
-        
-        if (titleEl) titleEl.textContent = sohbetAdi;
-        if (membersEl) {
-            membersEl.textContent = "Kişiler yükleniyor...";
-            gruptakiKisileriGetir(aktifSohbetId); // Yeni metodumuzu burada çağırıyoruz
-        }
-
-        //Tıklanan sohbette okunmamış mesaj rozeti varsa DOM'dan anında sil
-        const badge = chatItem.querySelector(".unread-badge");
-        if (badge) {
-            badge.remove();
-        }
 
         // YENİ YAZISINI TEMİZLE
         const p = chatItem.querySelector(".chat-last-message p");
         if (p && p.innerHTML.includes("Yeni:")) {
             p.innerHTML = p.innerHTML.replace(/<span.*?>Yeni:<\/span>\s*/, "");
         }
+        
+        const badge = chatItem.querySelector(".unread-badge");
+        if (badge) badge.remove();
 
-        // Sunucuya okundu işareti atma isteği gönderme
+        await window.sohbetiAc(id, sohbetAdi); // DİKKAT: Bağımsız fonksiyona devrettik
+    });
+
+    // YENİ EKLENEN: Her Yerden Çağrılabilir Sohbet Açma Fonksiyonu
+    window.sohbetiAc = async function(id, sohbetAdi = "Sohbet") {
+        aktifSohbetId = id;
+        
+        const titleEl = document.getElementById("chat-header-title");
+        const membersEl = document.getElementById("chat-header-members");
+        
+        if (titleEl) titleEl.textContent = sohbetAdi;
+        if (membersEl) {
+            membersEl.textContent = "Kişiler yükleniyor...";
+            gruptakiKisileriGetir(aktifSohbetId);
+        }
+
         fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
             method: "POST",
             headers: { "Authorization": "Bearer " + token }
         }).catch(err => console.error("Okundu işaretlenirken hata:", err));
         
-        // Sohbet mesajlarını getirme ve ekrana yansıtma
         await mesajlariGetir(aktifSohbetId);
-    });
+    };
 
     
     async function gruptakiKisileriGetir(sohbetId) {
@@ -376,25 +377,26 @@ if (onizleme.length > 35) {
                 }
 
                 mesajlar.forEach(m => {
-                    // Tip dönüşümü ile güvenlik sağladık (Kendi mesajımız mı diye bakıyoruz)
+                    // Tip dönüşümü ile güvenlik 
                     const gonderenId = m.gonderenid || m.Gonderenid || m.kullaniciid;
                     const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
                     
                     const metin = m.icerik || m.Icerik || m.mesaj || m.MesajMetni;
                     
-                    // Invalid Date çözümü için doğru C# model özelliğini ekledik
-                    const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
-                    let saatString = "";
-                    if (hamTarih) {
-                        const tarihObje = new Date(hamTarih);
-                        saatString = tarihObje.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    }
+                    // Invalid Date çözümü için doğru C# model özelliği
+                   // ESKİ VE SORUNLU KISIM (formatliTarih ve "Z" olan satırları tamamen siliyoruz)
+const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
+let saatString = "";
+if (hamTarih) {
+    const tarihObje = new Date(hamTarih);
+    saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
 
                    
                     const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
 
                     const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
-                    ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink);
+                    ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id);
                 });
             } else {
                 messagesContainer.innerHTML = "<p style='text-align:center; color:red; margin-top:20px;'>Mesajlar alınamadı.</p>";
@@ -405,7 +407,7 @@ if (onizleme.length > 35) {
     }
 
     
-    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null) {
+    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null,mesajId = null) {
         if (!text || text.trim() === "") return;
 
         const messageDiv = document.createElement("div");
@@ -574,75 +576,93 @@ if (solSohbetKutusu) {
         .build();
 
     connection.on("YeniMesajGeldi", (mesaj) => {
-        const gonderenId = mesaj.gonderenid || mesaj.Gonderenid || mesaj.kullaniciid;
-        const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
+    const gonderenId = mesaj.gonderenid || mesaj.Gonderenid || mesaj.kullaniciid;
+    const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
 
-        const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
-        const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
+    const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
+    
+    // DİREKT TARİHİ ALIYORUZ
+    const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
+    let saatString = "";
+
+    if (hamTarih) {
+        const tarihObje = new Date(hamTarih);
+        saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    } else {
+        saatString = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    }
         
-        let saatString = "";
-        if (hamTarih) {
-            const tarihObje = new Date(hamTarih);
-            saatString = tarihObje.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else {
-            saatString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
+    const dosyaLink = mesaj.dosyaYolu || mesaj.DosyaYolu || null;
+
+    if (mesaj.sohbetid == aktifSohbetId && !benMiyim) {
+        //KULLANICI ŞU AN MESAJIN GELDİĞİ SOHBETİN İÇİNDE
+        ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
+        
+        // Mesajı anında gördüğü için arka planda saati hemen güncelleyelim ki rozet oluşmasın
+        fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        }).catch(err => console.error(err));
+
+        // Sesli okuma açıksa oku
+        const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
+        if (ayarlar && ayarlar.otomatikOku === true) {
+            metniSeslendir(metin);
         }
-        
-        const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
-        const dosyaLink = mesaj.dosyaYolu || mesaj.DosyaYolu || null;
 
-        if (mesaj.sohbetid == aktifSohbetId && !benMiyim) {
-            //KULLANICI ŞU AN MESAJIN GELDİĞİ SOHBETİN İÇİNDE
-            ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
-            
-            // Mesajı anında gördüğü için arka planda saati hemen güncelleyelim ki rozet oluşmasın
-            fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
-                method: "POST",
-                headers: { "Authorization": "Bearer " + token }
-            }).catch(err => console.error(err));
-
-            // Sesli okuma açıksa oku
-            const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
-            if (ayarlar && ayarlar.otomatikOku === true) {
-                metniSeslendir(metin);
+        // =========================================================
+        // YENİ EKLENEN KISIM BURASI: SOL MENÜYÜ GÜNCELLE VE ÜSTE TAŞI
+        // =========================================================
+        const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${mesaj.sohbetid}']`);
+        if (solSohbetKutusu) {
+            const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
+            if (sonMesajP) {
+                let kisaAd = gonderenKisiAdi.split(' ')[0];
+                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${metin}`;
             }
-        } 
-        else if (!benMiyim) {
-            //KULLANICI BAŞKA BİR SOHBETTE VEYA BEKLEMEDE (DİNAMİK ROZET)
-            const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${mesaj.sohbetid}']`);
             
-            if (solSohbetKutusu) {
+            const chatListContainer = document.getElementById("chat-list");
+            if (chatListContainer) {
+                chatListContainer.prepend(solSohbetKutusu);
+            }
+        }
+        // =========================================================
+    } 
+    else if (!benMiyim) {
+        //KULLANICI BAŞKA BİR SOHBETTE VEYA BEKLEMEDE (DİNAMİK ROZET)
+        const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${mesaj.sohbetid}']`);
+        
+        if (solSohbetKutusu) {
+            const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
+            if (sonMesajP) {
+                //Gönderen kişinin sadece ilk ismini al
+                let kisaAd = gonderenKisiAdi.split(' ')[0];
                 
-                const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
-                if (sonMesajP) {
-                    //Gönderen kişinin sadece ilk ismini al
-                    let kisaAd = gonderenKisiAdi.split(' ')[0];
-                    
-                    // F5'teki görünümün aynısını dinamik olarak basıyoruz. 
-                    // Okunmamış olduğunu vurgulamak için markanın rengini ve kalın fontu koruduk.
-                    sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${metin}`;
-                }
+                // F5'teki görünümün aynısını dinamik olarak basıyoruz. 
+                // Okunmamış olduğunu vurgulamak için markanın rengini ve kalın fontu koruduk.
+                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${metin}`;
+            }
 
-                // Rozet kontrolü ve sayım artırma
-                let rozet = solSohbetKutusu.querySelector(".unread-badge");
-                if (rozet) {
-                    let mevcutSayi = parseInt(rozet.textContent) || 0;
-                    rozet.textContent = mevcutSayi + 1;
-                } else {
-                    const titleDiv = solSohbetKutusu.querySelector(".chat-title > div");
-                    if (titleDiv) {
-                        titleDiv.innerHTML += `<div class="unread-badge">1</div>`;
-                    }
-                }
-
-               
-                const chatListContainer = document.getElementById("chat-list");
-                if (chatListContainer) {
-                    chatListContainer.prepend(solSohbetKutusu);
+            // Rozet kontrolü ve sayım artırma
+            let rozet = solSohbetKutusu.querySelector(".unread-badge");
+            if (rozet) {
+                let mevcutSayi = parseInt(rozet.textContent) || 0;
+                rozet.textContent = mevcutSayi + 1;
+            } else {
+                const titleDiv = solSohbetKutusu.querySelector(".chat-title > div");
+                if (titleDiv) {
+                    titleDiv.innerHTML += `<div class="unread-badge">1</div>`;
                 }
             }
+
+            const chatListContainer = document.getElementById("chat-list");
+            if (chatListContainer) {
+                chatListContainer.prepend(solSohbetKutusu);
+            }
         }
-    });
+    }
+});
 connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
         
         const kisiIndex = aktifKisilerVerisi.findIndex(k => k.id === kullaniciId || k.Id === kullaniciId);
@@ -985,5 +1005,200 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             }
         });
     }
+    // =========================================================
+    // --- WHATSAPP TARZI HİBRİT ARAMA SİSTEMİ (DEBOUNCE) ---
+    // =========================================================
+
+    let aramaZamanlayici; 
+    const solAramaInput = document.getElementById("left-search-input"); // Kendi arama input id'ni buraya yaz!
+
+    // Tıklanabilir olması için fonksiyonları globale ekliyoruz
+    // ARAMA SONUÇLARINDAN BİR KİŞİYE TIKLANDIĞINDA ÇALIŞACAK ANA FONKSİYON
+    window.kisiyleSohbetBaslat = async function(hedefKullaniciId) {
+        try {
+            // C# API'sine hedef kişinin ID'sini gönderiyoruz (Varsa getir, yoksa oluştur)
+            const response = await fetch(`/api/sohbetler/birebir/${hedefKullaniciId}`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Arama kutusunu gizle, orijinal listeyi aç (Ekranı temizliyoruz)
+                document.getElementById("search-results-container").style.display = "none";
+                document.getElementById("chat-list").style.display = "block";
+                document.getElementById("left-search-input").value = "";
+                
+                if (data.yeniMi) {
+                    // Eğer sistem yepyeni bir sohbet oluşturduysa, sol menünün güncellenmesi için sayfayı yenilemek en sağlıklısı
+                    window.location.reload(); 
+                } else {
+                    // ZATEN SOHBET VARSA: Hiç yenilemeden doğrudan hedef sohbetin içine pürüzsüz geçiş yap!
+                    // (Sohbet adını sol menüden çalarak animasyonu hızlandırıyoruz)
+                    const sohbetKutusu = document.querySelector(`.chat-item[data-id='${data.sohbetId}'] h4`);
+                    const sohbetAdi = sohbetKutusu ? sohbetKutusu.textContent : "Sohbet";
+                    
+                    await window.sohbetiAc(data.sohbetId, sohbetAdi);
+                }
+            } else {
+                const hata = await response.text();
+                alert("Sohbet başlatılamadı: " + hata);
+            }
+        } catch (err) {
+            console.error("Kişiyle sohbet başlatılırken hata oluştu:", err);
+        }
+    };
+
+    if (solAramaInput) {
+        solAramaInput.addEventListener("input", (e) => {
+            clearTimeout(aramaZamanlayici); // Debounce mantığı: Beklemeyi sıfırla
+            
+            const kelime = e.target.value.trim();
+            const sohbetListesiKapsayici = document.getElementById("chat-list"); 
+            const aramaSonuclariKapsayici = document.getElementById("search-results-container"); // HTML'de arama inputunun altında olmalı!
+
+            if (kelime.length < 2) {
+                if(aramaSonuclariKapsayici) aramaSonuclariKapsayici.style.display = "none";
+                if(sohbetListesiKapsayici) sohbetListesiKapsayici.style.display = "block";
+                return;
+            }
+
+            aramaZamanlayici = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/sohbetler/ara?kelime=${kelime}`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    });
+
+                    if (response.ok) {
+                        const veri = await response.json();
+                        
+                        if(sohbetListesiKapsayici) sohbetListesiKapsayici.style.display = "none";
+                        if(aramaSonuclariKapsayici) {
+                            aramaSonuclariKapsayici.style.display = "block";
+                            aramaSonuclariniEkranaCiz(veri, kelime, aramaSonuclariKapsayici);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Arama hatası:", error);
+                }
+            }, 300); // 300ms bekle
+        });
+    }
+
+   
+    function aramaSonuclariniEkranaCiz(veri, arananKelime, kapsayici) {
+        kapsayici.innerHTML = "";
+
+        const regex = new RegExp(`(${arananKelime})`, "gi");
+        const vurgula = (metin) => metin.replace(regex, `<span class="search-highlight">$1</span>`);
+
+        // Tıklamalarda tırnak (') hatası çıkmaması için güvenli formata çeviriyoruz
+        const guvenliKelime = arananKelime.replace(/'/g, "\\'");
+
+        let html = "";
+
+        // 1. SOHBETLER
+        if (veri.sohbetler && veri.sohbetler.length > 0) {
+            html += `<div class="search-section-label">Sohbetler</div>`;
+            veri.sohbetler.forEach(s => {
+                html += `
+                <div class="search-result-item type-sohbet" onclick="window.sohbetiAc(${s.id}, '${s.ad.replace(/'/g, "\\'")}')">
+                    <div class="search-result-icon"><i class="fas fa-users"></i></div>
+                    <div class="search-result-name">${vurgula(s.ad)}</div>
+                </div>`;
+            });
+        }
+
+        // 2. KİŞİLER
+        if (veri.kisiler && veri.kisiler.length > 0) {
+            html += `<div class="search-section-label">Kişiler</div>`;
+            veri.kisiler.forEach(k => {
+                html += `
+                <div class="search-result-item type-kisi" onclick="window.kisiyleSohbetBaslat(${k.id})">
+                    <div class="search-result-icon"><i class="fas fa-user"></i></div>
+                    <div class="search-result-name">${vurgula(k.ad)}</div>
+                </div>`;
+            });
+        }
+
+        // 3. MESAJLAR (SOHBET ADI DAHİL)
+        if (veri.mesajlar && veri.mesajlar.length > 0) {
+            html += `<div class="search-section-label">Mesajlar</div>`;
+            veri.mesajlar.forEach(m => {
+                let kisaIcerik = m.icerik.length > 45 ? m.icerik.substring(0, 45) + "..." : m.icerik;
+
+                // SİHİRLİ DOKUNUŞ: C#'ı yormadan sol menüde zaten var olan sohbet adını JS ile anında çalıyoruz :)
+                const sohbetKutusu = document.querySelector(`.chat-list .chat-item[data-id='${m.sohbetId}'] h4`);
+                const sohbetAdi = sohbetKutusu ? sohbetKutusu.textContent : "Sohbet";
+
+                html += `
+                <div class="search-result-item type-mesaj" onclick="window.hedefMesajaGit(${m.sohbetId}, ${m.id}, '${guvenliKelime}')">
+                    <div style="display:flex; align-items:center; gap:10px; width:100%;">
+                        <div class="search-result-icon"><i class="fas fa-comment-dots"></i></div>
+                        <span class="search-result-msg-source"><i class="fas fa-thumbtack"></i>${sohbetAdi}</span>
+                    </div>
+                    <span class="search-result-msg-snippet">${vurgula(kisaIcerik)}</span>
+                </div>`;
+            });
+        }
+
+        if (html === "") {
+            html = `
+            <div class="search-empty-state">
+                <i class="fas fa-magnifying-glass"></i>
+                <span><strong>"${arananKelime}"</strong> için sonuç bulunamadı.</span>
+            </div>`;
+        }
+        kapsayici.innerHTML = html;
+    }
+
+    // GÜNCELLENDİ: SADECE KELİMEYİ SALİSELİK BOYAYAN ANİMASYON
+    window.hedefMesajaGit = async function(sohbetId, mesajId, arananKelime) {
+        await window.sohbetiAc(sohbetId); 
+        
+        setTimeout(() => {
+            const hedefMesajDiv = document.querySelector(`[data-mesajid='${mesajId}']`);
+            if (hedefMesajDiv) {
+                // Ekranda ortalayacak şekilde kaydır
+                hedefMesajDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Mesajın metnini tutan <p> etiketini bul
+                const pEtiketi = hedefMesajDiv.querySelector("p");
+                
+                if (pEtiketi && arananKelime) {
+                    const orijinalMetin = pEtiketi.innerHTML;
+                    const regex = new RegExp(`(${arananKelime})`, "gi");
+                    
+                    // Sadece o kelimeyi parlak sarı, gölgeli ve kalın yapan geçici bir <span> ile sar
+                    pEtiketi.innerHTML = orijinalMetin.replace(regex, `<span class="flash-highlight" style="background-color: #ffc107; color: #000; font-weight: bold; padding: 2px 4px; border-radius: 4px; box-shadow: 0 0 8px #ffc107; transition: all 1s ease;">$1</span>`);
+                    
+                    // 1.5 Saniye bekleyip yavaşça sönme efekti ver
+                    setTimeout(() => {
+                        const highlights = pEtiketi.querySelectorAll('.flash-highlight');
+                        highlights.forEach(h => {
+                            h.style.backgroundColor = "transparent";
+                            h.style.boxShadow = "none";
+                            h.style.color = "inherit"; // Eski renge dön
+                        });
+
+                        // Animasyon bitince orijinal HTML'i geri koy (DOM temiz kalsın)
+                        setTimeout(() => { pEtiketi.innerHTML = orijinalMetin; }, 1000);
+                    }, 1500);
+                    
+                } else {
+                    // Kelime odaklı vurgu yapılamazsa fallback olarak tüm div'i boya
+                    const orjinalRenk = hedefMesajDiv.style.backgroundColor;
+                    hedefMesajDiv.style.backgroundColor = "#dcf8c6"; 
+                    hedefMesajDiv.style.transition = "background-color 0.5s ease"; 
+                    
+                    setTimeout(() => {
+                        hedefMesajDiv.style.backgroundColor = orjinalRenk;
+                        setTimeout(() => { hedefMesajDiv.style.transition = ""; }, 500);
+                    }, 1500);
+                }
+            }
+        }, 500); // Mesajların render olması için 500ms bekle
+    };
 }); 
 
