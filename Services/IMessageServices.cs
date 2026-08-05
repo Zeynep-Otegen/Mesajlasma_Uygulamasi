@@ -10,4 +10,5 @@ public interface IMesajService
     
     // Yeni mesaj gönderme işlemi için metot
     void MesajGonder(Mesaj yeniMesaj);
+    bool KullaniciSohbetteMi(int sohbetId, int kullaniciId);
 }

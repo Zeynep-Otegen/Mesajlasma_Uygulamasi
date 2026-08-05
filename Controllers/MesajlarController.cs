@@ -31,6 +31,21 @@ public class MesajlarController : ControllerBase
     {
         try
         {
+            // 1. Aktif kullanıcının ID si
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+    
+            int aktifKullaniciId = int.Parse(userIdClaim);
+
+            // 2. Kullanıcının bu sohbetin bir üyesi olup olmadığı
+            bool yetkisiVarMi = _mesajService.KullaniciSohbetteMi(sohbetId, aktifKullaniciId);
+
+            if (!yetkisiVarMi)
+            {
+                // Yetkisi yoksa 403 Forbidden döndür
+                return StatusCode(403, "Erişim Reddedildi: Bu sohbetin bir üyesi değilsiniz.");
+            }
+
             var mesajlar = _mesajService.SohbeteAitMesajlariGetir(sohbetId);
             var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
 
@@ -59,6 +74,17 @@ public class MesajlarController : ControllerBase
         
         try
         {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+            
+            int aktifKullaniciId = int.Parse(userIdClaim);
+            bool yetkisiVarMi = _mesajService.KullaniciSohbetteMi(yeniMesaj.sohbetid, aktifKullaniciId);
+
+            if (!yetkisiVarMi)
+            {
+                return StatusCode(403, "Erişim Reddedildi: Bu sohbete mesaj gönderemezsiniz.");
+            }
+            
             yeniMesaj.gondermeTarihi = DateTime.Now;
             // Veritabanına kaydetmesi için Servis katmanına gönderiliyor
             _mesajService.MesajGonder(yeniMesaj);

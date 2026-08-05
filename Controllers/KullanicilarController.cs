@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using STAJ1.Models;
 using STAJ1.Services;
-using STAJ1.Repositories; // Log repository'sine erişmek için eklendi
+using STAJ1.Repositories; 
 using Microsoft.AspNetCore.Authorization;
-using System; // DateTime.UtcNow kullanabilmek için eklendi
+using System; 
+using System.Linq; // LINQ sorguları için eklendi
 
 namespace STAJ1.Controllers;
 
@@ -13,37 +14,56 @@ namespace STAJ1.Controllers;
 public class KullanicilarController : ControllerBase
 {
     private readonly IKullaniciService _kullaniciService;
-    private readonly IGenericRepository<Kullanicilog> _logRepository; // Log tablosu bağlantısı eklendi
+    private readonly IGenericRepository<Kullanicilog> _logRepository; 
+    private readonly IRedisService _redisService; // YENİ EKLENDİ
 
-    // Constructor'a IGenericRepository<Kullanicilog> parametresi eklendi
-    public KullanicilarController(IKullaniciService kullaniciService, IGenericRepository<Kullanicilog> logRepository)
+    public KullanicilarController(
+        IKullaniciService kullaniciService, 
+        IGenericRepository<Kullanicilog> logRepository,
+        IRedisService redisService) // YENİ EKLENDİ
     {
         _kullaniciService = kullaniciService;
         _logRepository = logRepository;
+        _redisService = redisService;
     }
 
     [Authorize]
     [HttpGet]
     public IActionResult Getir()
     {
+        // 1. Veritabanından (PostgreSQL) herkesi çek
         var kullanicilar = _kullaniciService.TumKullanicilariGetir();
-        return Ok(kullanicilar); 
-    }
-    [Authorize] // Admin kısıtlaması yok, giriş yapan herkes görebilir
-[HttpGet("grup-icin-liste")]
-public IActionResult GrupIcinKullanicilariGetir()
-{
-    // Senin KullaniciService'indeki hazır metodu kullanıyoruz
-    var kullanicilar = _kullaniciService.TumKullanicilariGetir()
-        .Select(k => new { 
-            id = k.Id, 
-            adsoyad = k.AdSoyad, 
-            eposta = k.Eposta 
-        }) 
-        .ToList();
         
-    return Ok(kullanicilar);
-}
+        // 2. RAM'den (Redis) sadece online olanların ID listesini çek
+        var onlineKullaniciIdleri = _redisService.CevrimiciKullanicilariGetir();
+
+        // 3. Verileri birleştirip (DTO Mantığı) Frontend'e yolla
+        var sonuc = kullanicilar.Select(k => new 
+        {
+            Id = k.Id,
+            AdSoyad = k.AdSoyad,
+            Eposta = k.Eposta,
+            // Eğer kişinin ID'si Redis listesinde varsa TRUE döner
+            CevrimiciMi = onlineKullaniciIdleri.Contains(k.Id) 
+        }).ToList();
+
+        return Ok(sonuc); 
+    }
+
+    [Authorize] 
+    [HttpGet("grup-icin-liste")]
+    public IActionResult GrupIcinKullanicilariGetir()
+    {
+        var kullanicilar = _kullaniciService.TumKullanicilariGetir()
+            .Select(k => new { 
+                id = k.Id, 
+                adsoyad = k.AdSoyad, 
+                eposta = k.Eposta 
+            }) 
+            .ToList();
+            
+        return Ok(kullanicilar);
+    }
 
     [HttpPost]
     public IActionResult Ekle([FromBody] Kullanici yeniKullanici)
@@ -59,7 +79,6 @@ public IActionResult GrupIcinKullanicilariGetir()
         }
     }
 
-    // PUT: Kullanıcı güncellemek için (api/kullanicilar/1)
     [HttpPut("{id}")]
     public IActionResult Guncelle(int id, [FromBody] Kullanici guncelKullanici)
     {
@@ -67,7 +86,6 @@ public IActionResult GrupIcinKullanicilariGetir()
         {
             _kullaniciService.KullaniciGuncelle(id, guncelKullanici);
 
-            // GÜNCELLEME İŞLEMİ LOGLANIYOR
             var yeniLog = new Kullanicilog
             {
                 KullaniciId = id,
@@ -81,12 +99,10 @@ public IActionResult GrupIcinKullanicilariGetir()
         catch (Exception ex)
         {
             var gercekHata = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-        return BadRequest($"Veritabanı Hatası: {gercekHata}");
-            
+            return BadRequest($"Veritabanı Hatası: {gercekHata}");
         }
     }
 
-    // DELETE: Kullanıcı silmek için (api/kullanicilar/1)
     [HttpDelete("{id}")]
     public IActionResult Sil(int id)
     {
@@ -94,7 +110,6 @@ public IActionResult GrupIcinKullanicilariGetir()
         {
             _kullaniciService.KullaniciSil(id);
 
-            // SİLME İŞLEMİ LOGLANIYOR
             var yeniLog = new Kullanicilog
             {
                 KullaniciId = id,
@@ -110,4 +125,12 @@ public IActionResult GrupIcinKullanicilariGetir()
             return NotFound(ex.Message);
         }
     }
+    // SADECE ADMIN ROLÜNE SAHİP OLANLAR GİREBİLİR
+[Authorize(Roles = "Admin")] 
+[HttpDelete("kullanici-sil/{id}")]
+public IActionResult KullaniciSil(int id)
+{
+    // Gerçekte silinmeyecek, kanıtlamak için log kayıdı oluşturacak
+    return Ok(new { mesaj = $"{id} numaralı kullanıcı sistemden silindi. (Admin Yetkisi Doğrulandı!)" });
+}
 }

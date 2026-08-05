@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using STAJ1.Hubs;
-using Microsoft.EntityFrameworkCore; 
+using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis; 
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
@@ -79,6 +80,13 @@ builder.Services.AddAuthentication(options =>
 
 
 //Dependency Injection (Arayüzeleri ekleme)
+// Redis Bağlantısını Uygulamaya Tekil (Singleton) Olarak Tanıtıyoruz
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var configuration = builder.Configuration.GetConnectionString("Redis");
+    return ConnectionMultiplexer.Connect(configuration);
+});
+
 
 builder.Services.AddScoped<IKullaniciService, KullaniciService>();
 // Sisteme Jenerik Kilerimizi tanıtıyoruz:
@@ -91,6 +99,8 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IMesajService, MesajService>();
 
 builder.Services.AddScoped<ISohbetService, SohbetService>();
+
+builder.Services.AddSingleton<IRedisService, RedisService>();
 
 var app = builder.Build();
 

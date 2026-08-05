@@ -777,3 +777,141 @@ emoji-picker {
     color: var(--danger) !important;
     transform: rotate(90deg);
 }
+
+/* ============================================================
+   ARAMA SONUÇLARI PANELİ (SOHBETLER / KİŞİLER / MESAJLAR)
+   Fonksiyonellik aynı kalır (app.js aynı id/click olaylarını
+   kullanır); sadece görsel katman modernleştirildi.
+   ============================================================ */
+
+#search-results-container {
+    background-color: #ffffff;
+    padding: 4px 4px 16px 4px;
+}
+
+/* Bölüm başlıkları: SOHBETLER / KİŞİLER / MESAJLAR */
+.search-section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--brand-dark);
+    margin: 18px 14px 8px 14px;
+}
+
+.search-section-label:first-child { margin-top: 10px; }
+
+.search-section-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: var(--line);
+}
+
+/* Ayırıcı çizgiler artık ayrı bölüm boşluğuyla sağlanıyor, hr'ye gerek yok */
+#search-results-container hr { display: none; }
+
+/* Ortak satır: sohbet / kişi / mesaj sonucu */
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    margin: 0 6px 2px 6px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.search-result-item:hover {
+    background-color: var(--sidebar-tint);
+}
+
+.search-result-item:active { transform: scale(0.99); }
+
+/* İkon rozeti (sohbet / kişi / mesaj) */
+.search-result-icon {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    background-color: var(--brand-soft);
+    color: var(--brand);
+}
+
+.search-result-item.type-mesaj .search-result-icon {
+    background-color: #fff4e0;
+    color: #d98a11;
+}
+
+/* Sohbet / kişi satırı metni */
+.search-result-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Mesaj sonucu: pinned chat adı + snippet, dikey düzen */
+.search-result-item.type-mesaj {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+}
+
+.search-result-msg-source {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.search-result-msg-source i { color: var(--brand); font-size: 11px; }
+
+.search-result-msg-snippet {
+    font-size: 13.5px;
+    color: var(--ink);
+    line-height: 1.4;
+}
+
+/* Aranan kelime vurgusu (marka rengiyle uyumlu) */
+.search-highlight {
+    color: var(--brand-dark);
+    font-weight: 700;
+    background-color: var(--brand-soft);
+    padding: 0 3px;
+    border-radius: 4px;
+}
+
+/* Sonuç bulunamadı durumu */
+.search-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.search-empty-state i {
+    font-size: 26px;
+    color: #c7cce0;
+}
+
+.search-empty-state span {
+    font-size: 14px;
+}
+
+.search-empty-state strong { color: var(--ink); }

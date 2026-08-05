@@ -227,9 +227,105 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
     }
    catch (Exception ex)
     {
-        // YENİ: Gerçek veritabanı hatasını yakalıyoruz!
+      
         var gercekHata = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
         return BadRequest($"GERÇEK HATA: {gercekHata}");
     }
 }
+[HttpGet("ara")]
+    public IActionResult GenelArama([FromQuery] string kelime)
+    {
+        try
+        {
+            var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                            ?? User.FindFirst("sub")?.Value;
+            
+            if (string.IsNullOrEmpty(userIdString)) return Unauthorized();
+            var kullaniciId = int.Parse(userIdString);
+
+            if (string.IsNullOrWhiteSpace(kelime) || kelime.Length < 2)
+                return BadRequest("Arama kelimesi en az 2 karakter olmalıdır.");
+
+            kelime = kelime.ToLower();
+
+            
+            var kullanicininSohbetIdleri = _katilimciRepo.HepsiniGetir()
+                .Where(k => k.kullaniciid == kullaniciId).Select(k => k.sohbetid).ToList();
+
+            var sohbetler = _sohbetService.KullanicininSohbetleriniGetir(kullaniciId)
+                .Where(s => (s.grupadi != null && s.grupadi.ToLower().Contains(kelime)))
+                .Select(s => new { id = s.id, ad = s.grupadi, tur = "sohbet" }).ToList();
+
+        
+            var kisiler = _kullaniciService.TumKullanicilariGetir()
+                .Where(k => k.Id != kullaniciId && k.AdSoyad.ToLower().Contains(kelime))
+                .Select(k => new { id = k.Id, ad = k.AdSoyad, tur = "kisi" }).ToList();
+
+         
+            var mesajlar = _mesajRepo.HepsiniGetir()
+                .Where(m => kullanicininSohbetIdleri.Contains(m.sohbetid) && 
+                            m.icerik != null && m.icerik.ToLower().Contains(kelime))
+                .Select(m => new 
+                { 
+                    id = m.id, 
+                    sohbetId = m.sohbetid, 
+                    icerik = m.icerik, 
+                    gondermeTarihi = m.gondermeTarihi 
+                })
+                .OrderByDescending(m => m.gondermeTarihi)
+                .ToList();
+
+            return Ok(new 
+            {
+                sohbetler = sohbetler,
+                kisiler = kisiler,
+                mesajlar = mesajlar
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Arama Hatası: {ex.Message}");
+        }
+    }
+    [HttpPost("birebir/{hedefKullaniciId}")]
+    public IActionResult BirebirSohbetBaslat(int hedefKullaniciId)
+    {
+        try
+        {
+            var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                            ?? User.FindFirst("sub")?.Value;
+            if (string.IsNullOrEmpty(userIdString)) return Unauthorized();
+            var benimId = int.Parse(userIdString);
+
+            if (benimId == hedefKullaniciId) 
+                return BadRequest("Kendinizle sohbet başlatamazsınız.");
+
+            // 1. KONTROL: Önceden bu iki kişi arasında birebir sohbet var mı?
+            var tumSohbetler = _sohbetService.KullanicininSohbetleriniGetir(benimId).Where(s => !s.grupmu).ToList();
+            var tumKatilimcilar = _katilimciRepo.HepsiniGetir();
+
+            foreach (var sohbet in tumSohbetler)
+            {
+                var digerKisininKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == sohbet.id && k.kullaniciid == hedefKullaniciId);
+                if (digerKisininKaydi != null)
+                {
+                    // SİHİRLİ KISIM: Zaten sohbet var, yeni oluşturmadan mevcut ID'yi dönüyoruz
+                    return Ok(new { mesaj = "Sohbet zaten var.", sohbetId = sohbet.id, yeniMi = false });
+                }
+            }
+
+            // 2. OLUŞTURMA: Yoksa yeni bir birebir sohbet oluştur
+            var yeniSohbet = new Sohbet { grupmu = false, olusturmaTarihi = DateTime.Now };
+            var olusturulan = _sohbetService.SohbetOlustur(yeniSohbet);
+
+            _sohbetService.KullaniciyiSohbeteEkle(olusturulan.id, benimId);
+            _sohbetService.KullaniciyiSohbeteEkle(olusturulan.id, hedefKullaniciId);
+
+            return Ok(new { mesaj = "Yeni sohbet oluşturuldu.", sohbetId = olusturulan.id, yeniMi = true });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Hata: {ex.Message}");
+        }
+    }
 }

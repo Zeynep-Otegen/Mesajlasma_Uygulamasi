@@ -28,4 +28,8 @@ public class MesajService : IMesajService
         // İleride buraya "Bu kullanıcı bu sohbette var mı?" gibi iş kuralları eklenecek
         _mesajRepository.Ekle(yeniMesaj);
     }
+    public bool KullaniciSohbetteMi(int sohbetId, int kullaniciId)
+{
+    return _mesajRepository.HepsiniGetir().Any(m => m.sohbetid == sohbetId && m.gonderenid == kullaniciId);
+}
 }

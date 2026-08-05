@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using STAJ1.Models;
 using STAJ1.Services;
 using System;
-using System.Security.Claims; // Token'dan ID okumak için gerekli
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace STAJ1.Hubs;
@@ -13,12 +13,14 @@ public class ChatHub : Hub
 {
     private readonly IMesajService _mesajService;
     private readonly IKullaniciService _kullaniciService; 
+    private readonly IRedisService _redisService; 
 
-    
-    public ChatHub(IMesajService mesajService, IKullaniciService kullaniciService)
+    // Constructor güncellendi
+    public ChatHub(IMesajService mesajService, IKullaniciService kullaniciService, IRedisService redisService)
     {
         _mesajService = mesajService;
         _kullaniciService = kullaniciService;
+        _redisService = redisService;
     }
 
     // =================================================================
@@ -26,17 +28,27 @@ public class ChatHub : Hub
     // =================================================================
     public override async Task OnConnectedAsync()
     {
-        // Token'dan giriş yapan kişinin ID'si
-        var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                        ?? Context.User?.FindFirst("sub")?.Value;
-
-        if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+        try 
         {
-            // Veritabanında Çevrimiçi (true) 
-            _kullaniciService.DurumGuncelle(userId, true);
+            var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                            ?? Context.User?.FindFirst("sub")?.Value;
 
-            
-            await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, true);
+            if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+            {
+                // 1. YEDEKLEME: Eski DB kodunu her ihtimale karşı çalıştır
+                _kullaniciService.DurumGuncelle(userId, true);
+                
+                // 2. REDİS: RAM'e yazmayı dene
+                _redisService.KullaniciCevrimiciYap(userId);
+                
+                // 3. BİLDİRİM: Diğer kullanıcılara haber ver
+                await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, true);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Redis'e ulaşılamazsa hatayı konsola yaz, ancak SignalR'ı ÇÖKERTME!
+            Console.WriteLine($"[SignalR Bağlantı Hatası]: {ex.Message}");
         }
 
         await base.OnConnectedAsync();
@@ -47,28 +59,57 @@ public class ChatHub : Hub
     // =================================================================
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                        ?? Context.User?.FindFirst("sub")?.Value;
-
-        if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+        try 
         {
-            // Veritabanında Çevrimdışı (false) yap 
-            _kullaniciService.DurumGuncelle(userId, false);
+            var userIdString = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                            ?? Context.User?.FindFirst("sub")?.Value;
 
-            
-            await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, false);
+            if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+            {
+                // 1. YEDEKLEME: Eski DB kodunu her ihtimale karşı çalıştır
+                _kullaniciService.DurumGuncelle(userId, false);
+                
+                // 2. REDİS: RAM'den silmeyi dene
+                _redisService.KullaniciCevrimdisiYap(userId);
+                
+                // 3. BİLDİRİM: Diğer kullanıcılara haber ver
+                await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, false);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Redis'e ulaşılamazsa hatayı konsola yaz, ancak SignalR'ı ÇÖKERTME!
+            Console.WriteLine($"[SignalR Kopma Hatası]: {ex.Message}");
         }
 
         await base.OnDisconnectedAsync(exception);
     }
 
-    
-
     public async Task OdayaKatil(int sohbetId)
+{
+    // İstek atan kişi ID al
+    var userIdString = Context.UserIdentifier; 
+    
+    if (string.IsNullOrEmpty(userIdString)) 
     {
-        string odaAdi = sohbetId.ToString();
-        await Groups.AddToGroupAsync(Context.ConnectionId, odaAdi);
+        return; // Kimliksiz girişleri reddet
     }
+
+    int aktifKullaniciId = int.Parse(userIdString);
+
+    //sohbette var mı?
+    
+    bool yetkisiVarMi = _mesajService.KullaniciSohbetteMi(sohbetId, aktifKullaniciId);
+
+    if (!yetkisiVarMi)
+    {
+        //Bağlantıyı Drop et
+        return; 
+    }
+
+    //Yetkisi varsa SignalR dinleyici grubuna dahil et
+    await Groups.AddToGroupAsync(Context.ConnectionId, sohbetId.ToString());
+}
     
     public async Task MesajGonder(int sohbetId, int gonderenId, string gonderenAd, string mesajIcerigi)
     {
