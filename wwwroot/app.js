@@ -6,7 +6,13 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.href = "login.html";
         return;
     }
-
+// XSS Saldırılarını önlemek için HTML karakterlerini zararsız metne çevirir (HTML Encode)
+function htmlGuvenliYap(metin) {
+    if (!metin) return "";
+    const div = document.createElement('div');
+    div.textContent = metin; 
+    return div.innerHTML;    
+}
     // Arayüz Elementleri
     const currentUserName = document.getElementById("current-user-name");
     const currentUserEmail = document.getElementById("current-user-email");
@@ -105,9 +111,9 @@ if (onizleme !== "Henüz mesaj yok...") {
     }
 }
 
-if (onizleme.length > 35) {
-    onizleme = onizleme.substring(0, 35) + "...";
-}
+// GÜVENLİ 
+if (onizleme.length > 35) onizleme = onizleme.substring(0, 35) + "...";
+onizleme = htmlGuvenliYap(onizleme);
                    
                     chatItem.innerHTML = `
                         <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
@@ -409,6 +415,7 @@ if (hamTarih) {
     
     function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null,mesajId = null) {
         if (!text || text.trim() === "") return;
+        const guvenliMetin = htmlGuvenliYap(text);
 
         const messageDiv = document.createElement("div");
         messageDiv.classList.add("message");
@@ -434,12 +441,13 @@ if (hamTarih) {
                 </div>
             `;
         }
+        
 
         messageDiv.innerHTML = `
             ${isimHtml}
             <div style="display: flex; flex-direction: column;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                    <p style="margin: 0; flex: 1;">${text}</p>
+                    <p style="margin: 0; flex: 1;">${guvenliMetin}</p>
                     ${sesIkonu}
                 </div>
                 ${dosyaHtml} <!-- DOSYA KUTUSUNU BURAYA BASTIK -->
@@ -541,7 +549,7 @@ const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${aktifSohbe
 if (solSohbetKutusu) {
     const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
     if (sonMesajP) {
-        sonMesajP.innerHTML = `Siz: ${metin || "📁 Dosya"}`;
+        sonMesajP.innerHTML = `Siz: ${htmlGuvenliYap(metin) || "📁 Dosya"}`;
     }
     // Sohbeti listesinin en üstüne al
     const chatListContainer = document.getElementById("chat-list");
@@ -574,13 +582,14 @@ if (solSohbetKutusu) {
         })
         .withAutomaticReconnect()
         .build();
+        
 
     connection.on("YeniMesajGeldi", (mesaj) => {
     const gonderenId = mesaj.gonderenid || mesaj.Gonderenid || mesaj.kullaniciid;
     const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
 
     const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
-    
+    const guvenliMetin = htmlGuvenliYap(metin);
     // DİREKT TARİHİ ALIYORUZ
     const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
     let saatString = "";
@@ -611,15 +620,15 @@ if (solSohbetKutusu) {
             metniSeslendir(metin);
         }
 
-        // =========================================================
-        // YENİ EKLENEN KISIM BURASI: SOL MENÜYÜ GÜNCELLE VE ÜSTE TAŞI
-        // =========================================================
+        // ===================================
+        // SOL MENÜYÜ GÜNCELLE VE ÜSTE TAŞI
+        // ===================================
         const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${mesaj.sohbetid}']`);
         if (solSohbetKutusu) {
             const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
             if (sonMesajP) {
                 let kisaAd = gonderenKisiAdi.split(' ')[0];
-                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${metin}`;
+                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${guvenliMetin || "📁 Dosya"}`;
             }
             
             const chatListContainer = document.getElementById("chat-list");
@@ -641,7 +650,7 @@ if (solSohbetKutusu) {
                 
                 // F5'teki görünümün aynısını dinamik olarak basıyoruz. 
                 // Okunmamış olduğunu vurgulamak için markanın rengini ve kalın fontu koruduk.
-                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${metin}`;
+                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${guvenliMetin || "📁 Dosya"}`;
             }
 
             // Rozet kontrolü ve sayım artırma

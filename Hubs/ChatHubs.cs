@@ -86,10 +86,30 @@ public class ChatHub : Hub
     }
 
     public async Task OdayaKatil(int sohbetId)
+{
+    // İstek atan kişi ID al
+    var userIdString = Context.UserIdentifier; 
+    
+    if (string.IsNullOrEmpty(userIdString)) 
     {
-        string odaAdi = sohbetId.ToString();
-        await Groups.AddToGroupAsync(Context.ConnectionId, odaAdi);
+        return; // Kimliksiz girişleri reddet
     }
+
+    int aktifKullaniciId = int.Parse(userIdString);
+
+    //sohbette var mı?
+    
+    bool yetkisiVarMi = _mesajService.KullaniciSohbetteMi(sohbetId, aktifKullaniciId);
+
+    if (!yetkisiVarMi)
+    {
+        //Bağlantıyı Drop et
+        return; 
+    }
+
+    //Yetkisi varsa SignalR dinleyici grubuna dahil et
+    await Groups.AddToGroupAsync(Context.ConnectionId, sohbetId.ToString());
+}
     
     public async Task MesajGonder(int sohbetId, int gonderenId, string gonderenAd, string mesajIcerigi)
     {

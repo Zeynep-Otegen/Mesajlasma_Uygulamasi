@@ -125,4 +125,12 @@ public class KullanicilarController : ControllerBase
             return NotFound(ex.Message);
         }
     }
+    // SADECE ADMIN ROLÜNE SAHİP OLANLAR GİREBİLİR
+[Authorize(Roles = "Admin")] 
+[HttpDelete("kullanici-sil/{id}")]
+public IActionResult KullaniciSil(int id)
+{
+    // Gerçekte silinmeyecek, kanıtlamak için log kayıdı oluşturacak
+    return Ok(new { mesaj = $"{id} numaralı kullanıcı sistemden silindi. (Admin Yetkisi Doğrulandı!)" });
+}
 }
