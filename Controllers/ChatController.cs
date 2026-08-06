@@ -10,7 +10,7 @@ namespace STAJ1.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/sohbetler")]
 public class ChatController : ControllerBase
 {
     private readonly IChatService _sohbetService;

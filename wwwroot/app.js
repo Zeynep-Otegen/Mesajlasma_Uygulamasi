@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-    const token = localStorage.getItem("token");
-    if (!token) {
+    const kullaniciVerisi = localStorage.getItem("kullanici");
+if (!kullaniciVerisi) {
         // Token yoksa demek ki giriş yapmamış, logine geri gönder
         window.location.href = "login.html";
         return;
@@ -14,137 +14,122 @@ function htmlGuvenliYap(metin) {
     return div.innerHTML;    
 }
     // Arayüz Elementleri
+    const aktifKullanici = JSON.parse(kullaniciVerisi);
     const currentUserName = document.getElementById("current-user-name");
     const currentUserEmail = document.getElementById("current-user-email");
     const chatList = document.getElementById("chat-list");
     const logoutBtn = document.getElementById("logout-btn");
 
     // 1. KİMLİK BİLGİLERİNİ GETİR VE YAZDIR
-    async function kullaniciBilgileriniGetir() {
-        try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const decodedJson = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            
-            const tokenData = JSON.parse(decodedJson);
-            console.log("🛠️ TOKEN İÇERİĞİ GELDİ:", tokenData); 
-
-            const isim = tokenData.AdSoyad || tokenData.name || tokenData.unique_name || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] || "İsimsiz Kullanıcı";
-            const email = tokenData.Eposta || tokenData.email || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] || "Email bulunamadı";
-
-            currentUserName.textContent = isim;
-            currentUserEmail.textContent = email;
-
-        } catch (error) {
-            console.error("Token çözülürken hata:", error);
-        }
-    }
+   async function kullaniciBilgileriniGetir() {
+    currentUserName.textContent = aktifKullanici.adSoyad || "İsimsiz Kullanıcı";
+    currentUserEmail.textContent = aktifKullanici.eposta || "Email bulunamadı";
+}
 
     
     // 2. SOHBETLERİ GETİR
    
     async function sohbetleriGetir() {
-        try {
-            const temizToken = token.replace(/[^A-Za-z0-9\-_.]/g, "");
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const decodedJson = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            const tokenData = JSON.parse(decodedJson);
-            
-            const kullaniciId = tokenData.sub || tokenData.nameid || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+    try {
+        // ESKİ UZUN TOKEN ÇÖZME İŞLEMLERİNİ TAMAMEN SİLDİK!
+        // Artık ID'yi doğrudan temiz objemizden alıyoruz:
+        const kullaniciId = aktifKullanici.id;
 
-            if (!kullaniciId) {
-                console.error("Token içinde kullanıcı ID bulunamadı!");
+        if (!kullaniciId) {
+            console.error("Kullanıcı ID bulunamadı!");
+            return;
+        }
+
+        console.log(`📡 Sohbetler API'sine istek atılıyor... Hedef: /api/sohbetler/kullanici/${kullaniciId}`);
+        
+        const response = await fetch(`/api/sohbetler/kullanici/${kullaniciId}`, {
+            method: "GET",
+            credentials: "include", // SİHİRLİ KELİME: Gizli Cookie'yi sunucuya otomatik yollar
+            headers: {
+                "Content-Type": "application/json"
+                // "Authorization" satırını tamamen kaldırdık!
+            }
+        });
+
+        if (response.ok) {
+            const sohbetler = await response.json();
+            chatList.innerHTML = ""; 
+
+            if (sohbetler.length === 0) {
+                chatList.innerHTML = "<p style='padding: 15px; color: #667781; text-align: center; font-size: 14px;'>Henüz hiç sohbet odası yok.</p>";
                 return;
             }
 
-            console.log(`📡 Sohbetler API'sine istek atılıyor... Hedef: /api/sohbetler/kullanici/${kullaniciId}`);
-            
-            const response = await fetch(`/api/sohbetler/kullanici/${kullaniciId}`, {
-                method: "GET",
-                headers: {
-                    "Authorization": "Bearer " + temizToken,
-                    "Content-Type": "application/json"
+            sohbetler.forEach(sohbet => {
+                const chatItem = document.createElement("div");
+                chatItem.classList.add("chat-item");
+                chatItem.dataset.id = sohbet.id; 
+
+                const badgeHtml = sohbet.okunmamisMesajSayisi > 0 
+                    ? `<div class="unread-badge">${sohbet.okunmamisMesajSayisi}</div>` 
+                    : "";
+
+                let onizleme = sohbet.sonMesajIcerik || "Henüz mesaj yok...";
+
+                if (onizleme !== "Henüz mesaj yok...") {
+                    const gidenMesajId = sohbet.sonMesajGonderenId || sohbet.SonMesajGonderenId || 0;
+                    if (Number(gidenMesajId) === Number(kullaniciId) && Number(gidenMesajId) !== 0) {
+                        onizleme = `Siz: ${onizleme}`;
+                    } else if (sohbet.grupmu && sohbet.sonMesajGonderenAd) {
+                        let kisaAd = sohbet.sonMesajGonderenAd.split(' ')[0];
+                        onizleme = `~${kisaAd}: ${onizleme}`;
+                    }
                 }
-            });
 
-            if (response.ok) {
-                const sohbetler = await response.json();
-                chatList.innerHTML = ""; 
-
-                if (sohbetler.length === 0) {
-                    chatList.innerHTML = "<p style='padding: 15px; color: #667781; text-align: center; font-size: 14px;'>Henüz hiç sohbet odası yok.</p>";
-                    return;
-                }
-
-                sohbetler.forEach(sohbet => {
-                    const chatItem = document.createElement("div");
-                    chatItem.classList.add("chat-item");
-                    chatItem.dataset.id = sohbet.id; 
-
-                    //Rozet HTML'i (Sadece 1 kez tanımlandı)
-                    const badgeHtml = sohbet.okunmamisMesajSayisi > 0 
-                        ? `<div class="unread-badge">${sohbet.okunmamisMesajSayisi}</div>` 
-                        : "";
-
-                   
+                if (onizleme.length > 35) onizleme = onizleme.substring(0, 35) + "...";
+                onizleme = htmlGuvenliYap(onizleme);
                     
-        //WHATSAPP STİLİ ÖNİZLEME (35 Karakter Sınırı)
-let onizleme = sohbet.sonMesajIcerik || "Henüz mesaj yok...";
-
-if (onizleme !== "Henüz mesaj yok...") {
-    
-    const gidenMesajId = sohbet.sonMesajGonderenId || sohbet.SonMesajGonderenId || 0;
-    
-    
-    if (Number(gidenMesajId) === Number(kullaniciId) && Number(gidenMesajId) !== 0) {
-        onizleme = `Siz: ${onizleme}`;
-    } 
-   
-    else if (sohbet.grupmu && sohbet.sonMesajGonderenAd) {
-        let kisaAd = sohbet.sonMesajGonderenAd.split(' ')[0];
-        onizleme = `~${kisaAd}: ${onizleme}`;
+                chatItem.innerHTML = `
+                    <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
+                    <div class="chat-details">
+                        <div class="chat-title">
+                            <h4>${sohbet.grupadi || sohbet.grupAdi || sohbet.GrupAdi || "İsimsiz Sohbet"}</h4>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                <span class="time">-</span>
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                        <div class="chat-last-message">
+                            <p>${onizleme}</p>
+                        </div>
+                    </div>
+                `;
+                chatList.appendChild(chatItem);
+            });
+        }
+        else {
+            // YENİ EKLENEN KISIM: Eğer API bizi reddederse sessiz kalmasın!
+            console.error("🚨 API Hatası:", response.status);
+            if (response.status === 401) {
+                alert("Oturumunuzun süresi dolmuş veya Çerez (Cookie) alınamamış. Lütfen tekrar giriş yapın!");
+                localStorage.removeItem("kullanici");
+                window.location.href = "login.html"; // Logine geri at
+            }
+        }
+    } catch (error) {
+        console.error("🚨 Sunucuya bağlanırken hata oluştu:", error);
     }
 }
 
-// GÜVENLİ 
-if (onizleme.length > 35) onizleme = onizleme.substring(0, 35) + "...";
-onizleme = htmlGuvenliYap(onizleme);
-                   
-                    chatItem.innerHTML = `
-                        <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
-                        <div class="chat-details">
-                            <div class="chat-title">
-                                <h4>${sohbet.grupadi || sohbet.grupAdi || sohbet.GrupAdi || "İsimsiz Sohbet"}</h4>
-                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                    <span class="time">-</span>
-                                    ${badgeHtml}
-                                </div>
-                            </div>
-                            <div class="chat-last-message">
-                                <p>${onizleme}</p>
-                            </div>
-                        </div>
-                    `;
-                    chatList.appendChild(chatItem);
-                });
-            }
-        } catch (error) {
-            console.error("🚨 Sunucuya bağlanırken hata oluştu:", error);
-        }
-    }
-
     // Çıkış Yapma
     if (logoutBtn) {
-        logoutBtn.addEventListener("click", () => {
-            localStorage.removeItem("token");
-            window.location.href = "login.html";
+    logoutBtn.addEventListener("click", async () => {
+        // API'ye çerezi silmesini söyle
+        await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include"
         });
-    }
+        
+        // Frontend'i temizle
+        localStorage.removeItem("kullanici");
+        window.location.href = "login.html";
+    });
+}
 
     kullaniciBilgileriniGetir();
     sohbetleriGetir();
@@ -180,7 +165,10 @@ onizleme = htmlGuvenliYap(onizleme);
             
             
             const response = await fetch("/api/kullanicilar/grup-icin-liste", {
-                headers: { "Authorization": `Bearer ${token}` }
+                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
             });
             
             if (response.ok) {
@@ -246,10 +234,10 @@ onizleme = htmlGuvenliYap(onizleme);
             try {
                 const response = await fetch("/api/sohbetler/grup-olustur", {
                     method: "POST",
+                    credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
                     headers: { 
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    },
+                            "Content-Type": "application/json" 
+                            },
                     body: JSON.stringify({
                         GrupAdi: grupAdi,
                         KatilimciIdleri: seciliIdler
@@ -280,18 +268,14 @@ onizleme = htmlGuvenliYap(onizleme);
     let benimKullaniciIdm = null; 
 
     // Kim giden, kim gelen mesajlarını ayırt edebilmek için kendi kullanıcı ID'mizi alıyoruz
-    function kendiIdmiAl() {
-        if (!token) return null;
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const tokenData = JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-        return parseInt(tokenData.sub || tokenData.nameid || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]);
-    }
+   function kendiIdmiAl() {
+    return parseInt(aktifKullanici.id);
+                        }
     benimKullaniciIdm = kendiIdmiAl();
+    
 
     //Sol Menüden Bir Sohbete Tıklanması Dinleme
     
-    //Sol Menüden Bir Sohbete Tıklanması Dinleme
     chatList.addEventListener("click", async (e) => {
         const chatItem = e.target.closest(".chat-item");
         if (!chatItem) return;
@@ -330,7 +314,10 @@ onizleme = htmlGuvenliYap(onizleme);
 
         fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
             method: "POST",
-            headers: { "Authorization": "Bearer " + token }
+            credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
         }).catch(err => console.error("Okundu işaretlenirken hata:", err));
         
         await mesajlariGetir(aktifSohbetId);
@@ -340,7 +327,10 @@ onizleme = htmlGuvenliYap(onizleme);
     async function gruptakiKisileriGetir(sohbetId) {
         try {
             const response = await fetch(`/api/sohbetler/${sohbetId}/katilimcilar`, {
-                headers: { "Authorization": `Bearer ${token}` }
+                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
             });
 
             if (response.ok) {
@@ -370,7 +360,10 @@ onizleme = htmlGuvenliYap(onizleme);
         
         try {
             const response = await fetch(`/api/mesajlar/sohbet/${sohbetId}`, {
-                headers: { "Authorization": `Bearer ${token}` }
+                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
             });
 
             if (response.ok) {
@@ -496,7 +489,10 @@ if (hamTarih) {
                 // DosyalarController'a dosyayı fırlatıyoruz
                 const uploadRes = await fetch("/api/dosyalar/yukle", {
                     method: "POST",
-                    headers: { "Authorization": `Bearer ${token}` },
+                    credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+},
                     body: formData // DİKKAT: JSON değil FormData gönderiyoruz
                 });
                 
@@ -525,10 +521,10 @@ if (hamTarih) {
             const apiAdresi = "/api/mesajlar"; 
             const response = await fetch(apiAdresi, {
                 method: "POST",
-                headers: { 
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
+                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                    headers: { 
+                        "Content-Type": "application/json" 
+                            },
                 body: JSON.stringify({
                     sohbetid: parseInt(aktifSohbetId),
                     icerik: metin || "📁 Dosya gönderildi", // Metin boşsa ekranda bu yazsın
@@ -575,13 +571,11 @@ if (solSohbetKutusu) {
     // =========================================================
     // --- SIGNALR GERÇEK ZAMANLI BAĞLANTI ---
     // =========================================================
-    
-    const connection = new signalR.HubConnectionBuilder()
-        .withUrl("/chathub", { 
-            accessTokenFactory: () => token 
-        })
-        .withAutomaticReconnect()
-        .build();
+ 
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/chathub") 
+    .withAutomaticReconnect()
+    .build();
         
 
     connection.on("YeniMesajGeldi", (mesaj) => {
@@ -611,7 +605,10 @@ if (solSohbetKutusu) {
         // Mesajı anında gördüğü için arka planda saati hemen güncelleyelim ki rozet oluşmasın
         fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
             method: "POST",
-            headers: { "Authorization": "Bearer " + token }
+            credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
         }).catch(err => console.error(err));
 
         // Sesli okuma açıksa oku
@@ -775,10 +772,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             //Güvenli C# sunucuya istek atılır.
             const response = await fetch("/api/tts/seslendir", {
                 method: "POST",
+                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
                 headers: { 
-                    "Authorization": `Bearer ${token}`, // JWT Token ekleme
-                    "Content-Type": "application/json" 
-                },
+                            "Content-Type": "application/json" 
+                        },
                 body: JSON.stringify({
                     text: metin,
                     languageCode: ayarlar.dil,
@@ -937,7 +934,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             try {
                 
                 const response = await fetch("/api/kullanicilar", { 
-                    headers: { "Authorization": `Bearer ${token}` }
+                    credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
                 });
 
                 if (response.ok) {
@@ -1028,7 +1028,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             // C# API'sine hedef kişinin ID'sini gönderiyoruz (Varsa getir, yoksa oluştur)
             const response = await fetch(`/api/sohbetler/birebir/${hedefKullaniciId}`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${token}` }
+               credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
             });
 
             if (response.ok) {
@@ -1076,7 +1079,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             aramaZamanlayici = setTimeout(async () => {
                 try {
                     const response = await fetch(`/api/sohbetler/ara?kelime=${kelime}`, {
-                        headers: { "Authorization": `Bearer ${token}` }
+                        credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+headers: { 
+    "Content-Type": "application/json" 
+}
                     });
 
                     if (response.ok) {
