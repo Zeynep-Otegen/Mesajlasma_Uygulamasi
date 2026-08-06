@@ -1,6 +1,8 @@
 # Derleme ve Çalışma Zamanı Klasörleri
 bin/
 obj/
+.vscode/
+wwwroot/uploads/
 
 
 # Kullanıcıya Özel Ayarlar
@@ -19,3 +21,5 @@ docker-compose.yml
 compose.yaml
 
 .env
+wwwroot/uploads
+
