@@ -113,7 +113,7 @@ public class ChatHub : Hub
     
     public async Task MesajGonder(int sohbetId, int gonderenId, string gonderenAd, string mesajIcerigi)
     {
-        var yeniMesaj = new Mesaj
+        var yeniMesaj = new Message
         {
             sohbetid = sohbetId,
             gonderenid = gonderenId,

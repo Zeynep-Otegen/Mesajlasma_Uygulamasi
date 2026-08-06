@@ -12,10 +12,10 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly ITokenService _tokenService;
-    private readonly IGenericRepository<Kullanicilog> _logRepository;
+    private readonly IGenericRepository<UserLog> _logRepository;
 
     // Her iki servisi de Controller'a tanıtıyoruz
-    public AuthController(IAuthService authService, ITokenService tokenService, IGenericRepository<Kullanicilog> logRepository) 
+    public AuthController(IAuthService authService, ITokenService tokenService, IGenericRepository<UserLog> logRepository) 
     {
         _authService = authService;
         _tokenService = tokenService;
@@ -23,7 +23,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public IActionResult Register([FromBody] Kullanici yeniKullanici)
+    public IActionResult Register([FromBody] User yeniKullanici)
     {
         try
         {
@@ -47,14 +47,14 @@ public class AuthController : ControllerBase
             // 2. İşlem: Doğrulanan kullanıcı ve rolleri için Token üret
             string uretilenToken = _tokenService.GenerateToken(kullanici, roller);
 
-            var yeniLog = new Kullanicilog
+            var yeniLog = new UserLog
             {
                 KullaniciId = kullanici.Id,
                 islemTipi = "Sisteme giriş yapıldı (Login)",
                 islemTarihi = DateTime.UtcNow
             };
 
-            _logRepository.Ekle(yeniLog);
+            _logRepository.Add(yeniLog);
 
             return Ok(new { 
                 mesaj = "Giriş başarılı!", 

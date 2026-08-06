@@ -4,10 +4,10 @@ namespace STAJ1.Services;
 
 public interface IKullaniciService
 {
-    List<Kullanici> TumKullanicilariGetir();
-    Kullanici? IdyeGoreGetir(int id);
-    void KullaniciEkle(Kullanici kullanici);
-    void KullaniciGuncelle(int id, Kullanici guncelKullanici);
+    List<User> TumKullanicilariGetir();
+    User? IdyeGoreGetir(int id);
+    void KullaniciEkle(User kullanici);
+    void KullaniciGuncelle(int id, User guncelKullanici);
     void KullaniciSil(int id);
     void DurumGuncelle(int kullaniciId, bool cevrimiciMi);
 }

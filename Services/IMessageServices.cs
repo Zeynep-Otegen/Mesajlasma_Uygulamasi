@@ -6,9 +6,9 @@ namespace STAJ1.Services;
 public interface IMesajService
 {
     // Belirli bir sohbete ait tüm mesajları getirecek metot
-    IEnumerable<Mesaj> SohbeteAitMesajlariGetir(int sohbetId);
+    IEnumerable<Message> SohbeteAitMesajlariGetir(int sohbetId);
     
     // Yeni mesaj gönderme işlemi için metot
-    void MesajGonder(Mesaj yeniMesaj);
+    void MesajGonder(Message yeniMesaj);
     bool KullaniciSohbetteMi(int sohbetId, int kullaniciId);
 }

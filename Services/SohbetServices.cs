@@ -8,43 +8,43 @@ namespace STAJ1.Services;
 
 public class SohbetService : ISohbetService
 {
-    private readonly IGenericRepository<Sohbet> _sohbetRepository;
-    private readonly IGenericRepository<SohbetKatilimci> _katilimciRepository;
+    private readonly IGenericRepository<Chat> _sohbetRepository;
+    private readonly IGenericRepository<ChatMember> _katilimciRepository;
 
     public SohbetService(
-        IGenericRepository<Sohbet> sohbetRepository, 
-        IGenericRepository<SohbetKatilimci> katilimciRepository)
+        IGenericRepository<Chat> sohbetRepository, 
+        IGenericRepository<ChatMember> katilimciRepository)
     {
         _sohbetRepository = sohbetRepository;
         _katilimciRepository = katilimciRepository;
     }
 
-    public Sohbet SohbetOlustur(Sohbet yeniSohbet)
+    public Chat SohbetOlustur(Chat yeniSohbet)
     {
-        _sohbetRepository.Ekle(yeniSohbet);
+        _sohbetRepository.Add(yeniSohbet);
         return yeniSohbet; // Eklendikten sonra veritabanından dönen Id ile birlikte
     }
 
     public void KullaniciyiSohbeteEkle(int sohbetId, int kullaniciId)
     {
-        var katilimci = new SohbetKatilimci
+        var katilimci = new ChatMember
         {
             sohbetid = sohbetId,
             kullaniciid = kullaniciId
         };
-        _katilimciRepository.Ekle(katilimci);
+        _katilimciRepository.Add(katilimci);
     }
 
-    public IEnumerable<Sohbet> KullanicininSohbetleriniGetir(int kullaniciId)
+    public IEnumerable<Chat> KullanicininSohbetleriniGetir(int kullaniciId)
     {
         // Kullanıcının bulunduğu sohbet ID'lerini bul
-        var kullanicininSohbetIdleri = _katilimciRepository.HepsiniGetir()
+        var kullanicininSohbetIdleri = _katilimciRepository.GetAll()
             .Where(k => k.kullaniciid == kullaniciId)
             .Select(k => k.sohbetid)
             .ToList();
 
         // Bu ID'lere sahip sohbetleri getir
-        return _sohbetRepository.HepsiniGetir()
+        return _sohbetRepository.GetAll()
             .Where(s => kullanicininSohbetIdleri.Contains(s.id))
             .ToList();
     }

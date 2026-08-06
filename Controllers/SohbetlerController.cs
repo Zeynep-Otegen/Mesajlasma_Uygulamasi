@@ -15,14 +15,14 @@ public class SohbetlerController : ControllerBase
 {
     private readonly ISohbetService _sohbetService;
     private readonly IKullaniciService _kullaniciService; 
-    private readonly IGenericRepository<SohbetKatilimci> _katilimciRepo; 
-    private readonly IGenericRepository<Mesaj> _mesajRepo;
+    private readonly IGenericRepository<ChatMember> _katilimciRepo; 
+    private readonly IGenericRepository<Message> _mesajRepo;
 
     public SohbetlerController(
         ISohbetService sohbetService, 
         IKullaniciService kullaniciService, 
-        IGenericRepository<SohbetKatilimci> katilimciRepo,
-        IGenericRepository<Mesaj> mesajRepo)
+        IGenericRepository<ChatMember> katilimciRepo,
+        IGenericRepository<Message> mesajRepo)
     {
         _sohbetService = sohbetService;
         _kullaniciService = kullaniciService;
@@ -31,7 +31,7 @@ public class SohbetlerController : ControllerBase
     }
 
     [HttpPost("olustur")]
-    public IActionResult SohbetOlustur([FromBody] Sohbet yeniSohbet)
+    public IActionResult SohbetOlustur([FromBody] Chat yeniSohbet)
     {
         try
         {
@@ -69,7 +69,7 @@ public class SohbetlerController : ControllerBase
             if (string.IsNullOrEmpty(userIdString)) return Unauthorized("Kullanıcı kimliği bulunamadı.");
             var olusturanKullaniciId = int.Parse(userIdString);
 
-            var yeniSohbet = new Sohbet
+            var yeniSohbet = new Chat
             {
                 grupadi = request.GrupAdi, 
                 grupmu = true,
@@ -105,9 +105,9 @@ public class SohbetlerController : ControllerBase
         try
         {
             var sohbetler = _sohbetService.KullanicininSohbetleriniGetir(kullaniciId);
-            var tumKatilimcilar = _katilimciRepo.HepsiniGetir();
+            var tumKatilimcilar = _katilimciRepo.GetAll();
             var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
-            var tumMesajlar = _mesajRepo.HepsiniGetir(); 
+            var tumMesajlar = _mesajRepo.GetAll(); 
 
             var dinamikSohbetListesi = sohbetler.Select(s => 
             {
@@ -177,7 +177,7 @@ public class SohbetlerController : ControllerBase
     {
         try
         {
-            var katilimciKayitlari = _katilimciRepo.HepsiniGetir().Where(k => k.sohbetid == sohbetId).ToList();
+            var katilimciKayitlari = _katilimciRepo.GetAll().Where(k => k.sohbetid == sohbetId).ToList();
             var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
 
             var gruptakiKisiler = katilimciKayitlari.Select(k => {
@@ -212,7 +212,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
             
         var kullaniciId = int.Parse(userIdString);
 
-        var katilimci = _katilimciRepo.HepsiniGetir()
+        var katilimci = _katilimciRepo.GetAll()
             .FirstOrDefault(k => k.sohbetid == sohbetId && k.kullaniciid == kullaniciId);
 
         if (katilimci != null)
@@ -220,7 +220,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
             
             katilimci.SonOkumaTarihi = DateTime.Now;
             
-            _katilimciRepo.Guncelle(katilimci); 
+            _katilimciRepo.Update(katilimci); 
             return Ok();
         }
         return BadRequest("Kullanıcı bu sohbette değil.");
@@ -249,7 +249,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
             kelime = kelime.ToLower();
 
             
-            var kullanicininSohbetIdleri = _katilimciRepo.HepsiniGetir()
+            var kullanicininSohbetIdleri = _katilimciRepo.GetAll()
                 .Where(k => k.kullaniciid == kullaniciId).Select(k => k.sohbetid).ToList();
 
             var sohbetler = _sohbetService.KullanicininSohbetleriniGetir(kullaniciId)
@@ -262,7 +262,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
                 .Select(k => new { id = k.Id, ad = k.AdSoyad, tur = "kisi" }).ToList();
 
          
-            var mesajlar = _mesajRepo.HepsiniGetir()
+            var mesajlar = _mesajRepo.GetAll()
                 .Where(m => kullanicininSohbetIdleri.Contains(m.sohbetid) && 
                             m.icerik != null && m.icerik.ToLower().Contains(kelime))
                 .Select(m => new 
@@ -302,7 +302,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
 
             // 1. KONTROL: Önceden bu iki kişi arasında birebir sohbet var mı?
             var tumSohbetler = _sohbetService.KullanicininSohbetleriniGetir(benimId).Where(s => !s.grupmu).ToList();
-            var tumKatilimcilar = _katilimciRepo.HepsiniGetir();
+            var tumKatilimcilar = _katilimciRepo.GetAll();
 
             foreach (var sohbet in tumSohbetler)
             {
@@ -315,7 +315,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
             }
 
             // 2. OLUŞTURMA: Yoksa yeni bir birebir sohbet oluştur
-            var yeniSohbet = new Sohbet { grupmu = false, olusturmaTarihi = DateTime.Now };
+            var yeniSohbet = new Chat { grupmu = false, olusturmaTarihi = DateTime.Now };
             var olusturulan = _sohbetService.SohbetOlustur(yeniSohbet);
 
             _sohbetService.KullaniciyiSohbeteEkle(olusturulan.id, benimId);

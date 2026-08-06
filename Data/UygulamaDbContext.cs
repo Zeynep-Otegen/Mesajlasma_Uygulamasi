@@ -6,23 +6,23 @@ public class UygulamaDbContext : DbContext
     public UygulamaDbContext(DbContextOptions<UygulamaDbContext> options) : base(options)
     {
     }
-    public DbSet<Kullanici> kullanicilar { get; set; }
-    public DbSet<Rol> roller { get; set; }
-    public DbSet<Kullanicirol> kullaniciroller { get; set; }
-    public DbSet<Sohbet> sohbetler { get; set; }
-    public DbSet<SohbetKatilimci> sohbetkatilimcilar { get; set; }
-    public DbSet<Mesaj> mesajlar { get; set; }
-    public DbSet<Kullanicilog> kullaniciloglar { get; set; }
+    public DbSet<User> kullanicilar { get; set; }
+    public DbSet<Role> roller { get; set; }
+    public DbSet<UserRole> kullaniciroller { get; set; }
+    public DbSet<Chat> sohbetler { get; set; }
+    public DbSet<ChatMember> sohbetkatilimcilar { get; set; }
+    public DbSet<Message> mesajlar { get; set; }
+    public DbSet<UserLog> kullaniciloglar { get; set; }
 
 protected override void OnModelCreating(ModelBuilder modelBuilder) //Entitiy ler arasındaki ilişkiler tanımlanır.
     {
-        // Kullanicirol tablosunun bağlantılarını açıkça belirtiyoruz
-        modelBuilder.Entity<Kullanicirol>()
+        // Kullanicirol tablosunun bağlantılarını belirtiyoruz
+        modelBuilder.Entity<UserRole>()
             .HasOne(kr => kr.Kullanici)
             .WithMany(k => k.KullaniciRolleri)
             .HasForeignKey(kr => kr.KullaniciId);
 
-        modelBuilder.Entity<Kullanicirol>()
+        modelBuilder.Entity<UserRole>()
             .HasOne(kr => kr.Rol)
             .WithMany(r => r.KullaniciRolleri)
             .HasForeignKey(kr => kr.RolId);

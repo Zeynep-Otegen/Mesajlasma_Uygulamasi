@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace STAJ1.Models;
 
 [Table("kullanicilar")]
-public class Kullanici
+public class User
 {
     [Column("id")]
     public int Id { get; set; }
@@ -22,5 +22,5 @@ public class Kullanici
 
     public DateTime? SonGorulme { get; set; }
     // Çoka Çok İlişki: Kullanıcının sahip olduğu roller (Ara tablo üzerinden)
-    public ICollection<Kullanicirol>? KullaniciRolleri { get; set; }
+    public ICollection<UserRole>? KullaniciRolleri { get; set; }
 }

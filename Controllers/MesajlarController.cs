@@ -69,7 +69,7 @@ public class MesajlarController : ControllerBase
     }
 
    [HttpPost]
-    public async Task<IActionResult> MesajGonder([FromBody] Mesaj yeniMesaj) 
+    public async Task<IActionResult> MesajGonder([FromBody] Message yeniMesaj) 
     {
         
         try

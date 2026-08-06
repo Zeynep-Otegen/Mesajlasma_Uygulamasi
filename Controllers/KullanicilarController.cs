@@ -14,12 +14,12 @@ namespace STAJ1.Controllers;
 public class KullanicilarController : ControllerBase
 {
     private readonly IKullaniciService _kullaniciService;
-    private readonly IGenericRepository<Kullanicilog> _logRepository; 
+    private readonly IGenericRepository<UserLog> _logRepository; 
     private readonly IRedisService _redisService; // YENİ EKLENDİ
 
     public KullanicilarController(
         IKullaniciService kullaniciService, 
-        IGenericRepository<Kullanicilog> logRepository,
+        IGenericRepository<UserLog> logRepository,
         IRedisService redisService) // YENİ EKLENDİ
     {
         _kullaniciService = kullaniciService;
@@ -66,7 +66,7 @@ public class KullanicilarController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Ekle([FromBody] Kullanici yeniKullanici)
+    public IActionResult Ekle([FromBody] User yeniKullanici)
     {
         try
         {
@@ -80,19 +80,19 @@ public class KullanicilarController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public IActionResult Guncelle(int id, [FromBody] Kullanici guncelKullanici)
+    public IActionResult Guncelle(int id, [FromBody] User guncelKullanici)
     {
         try
         {
             _kullaniciService.KullaniciGuncelle(id, guncelKullanici);
 
-            var yeniLog = new Kullanicilog
+            var yeniLog = new UserLog
             {
                 KullaniciId = id,
                 islemTipi = "Profil bilgileri güncellendi",
                 islemTarihi = DateTime.UtcNow
             };
-            _logRepository.Ekle(yeniLog);
+            _logRepository.Add(yeniLog);
 
             return Ok("Kullanıcı başarıyla güncellendi ve log kayıtlarına eklendi.");
         }
@@ -110,13 +110,13 @@ public class KullanicilarController : ControllerBase
         {
             _kullaniciService.KullaniciSil(id);
 
-            var yeniLog = new Kullanicilog
+            var yeniLog = new UserLog
             {
                 KullaniciId = id,
                 islemTipi = "Kullanıcı silindi (Hesap Kapatma)",
                 islemTarihi = DateTime.UtcNow
             };
-            _logRepository.Ekle(yeniLog);
+            _logRepository.Add(yeniLog);
 
             return Ok("Kullanıcı başarıyla silindi ve log kayıtlarına eklendi.");
         }

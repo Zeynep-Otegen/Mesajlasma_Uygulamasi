@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace STAJ1.Models;
 
 [Table("kullaniciloglari")]
-public class Kullanicilog
+public class UserLog
 {
      //Postsql tarafında alanların uyuşmamazlığıdan kaynaklanan hataların hepsi giderildi.
     [Column("id")]
