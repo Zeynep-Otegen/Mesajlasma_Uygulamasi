@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using STAJ1.Models;
 using STAJ1.Services;
 using System;
-using System.Linq; // LINQ sorguları için eklendi
+using System.Linq; 
 using STAJ1.Repositories;
 
 namespace STAJ1.Controllers;
@@ -11,16 +11,16 @@ namespace STAJ1.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class SohbetlerController : ControllerBase
+public class ChatController : ControllerBase
 {
-    private readonly ISohbetService _sohbetService;
-    private readonly IKullaniciService _kullaniciService; 
+    private readonly IChatService _sohbetService;
+    private readonly IUserService _kullaniciService; 
     private readonly IGenericRepository<ChatMember> _katilimciRepo; 
     private readonly IGenericRepository<Message> _mesajRepo;
 
-    public SohbetlerController(
-        ISohbetService sohbetService, 
-        IKullaniciService kullaniciService, 
+    public ChatController(
+        IChatService sohbetService, 
+        IUserService kullaniciService, 
         IGenericRepository<ChatMember> katilimciRepo,
         IGenericRepository<Message> mesajRepo)
     {
@@ -31,11 +31,11 @@ public class SohbetlerController : ControllerBase
     }
 
     [HttpPost("olustur")]
-    public IActionResult SohbetOlustur([FromBody] Chat yeniSohbet)
+    public IActionResult CreateChat([FromBody] Chat yeniSohbet)
     {
         try
         {
-            var olusturulanSohbet = _sohbetService.SohbetOlustur(yeniSohbet);
+            var olusturulanSohbet = _sohbetService.CreateChat(yeniSohbet);
             return Ok(olusturulanSohbet);
         }
         catch (Exception ex)
@@ -46,11 +46,11 @@ public class SohbetlerController : ControllerBase
     }
 
     [HttpPost("{sohbetId}/kullanici-ekle/{kullaniciId}")]
-    public IActionResult KullaniciEkle(int sohbetId, int kullaniciId)
+    public IActionResult AddUser(int sohbetId, int kullaniciId)
     {
         try
         {
-            _sohbetService.KullaniciyiSohbeteEkle(sohbetId, kullaniciId);
+            _sohbetService.AddUserToChat(sohbetId, kullaniciId);
             return Ok("Kullanıcı sohbete başarıyla eklendi.");
         }
         catch (Exception ex)
@@ -61,7 +61,7 @@ public class SohbetlerController : ControllerBase
     }
 
     [HttpPost("grup-olustur")]
-    public IActionResult GrupOlustur([FromBody] YeniGrupRequest request)
+    public IActionResult CreateGroupChat([FromBody] YeniGrupRequest request)
     {
         try
         {
@@ -76,7 +76,7 @@ public class SohbetlerController : ControllerBase
                 olusturmaTarihi = DateTime.Now
             };
 
-            var olusturulanSohbet = _sohbetService.SohbetOlustur(yeniSohbet);
+            var olusturulanSohbet = _sohbetService.CreateChat(yeniSohbet);
 
             if (!request.KatilimciIdleri.Contains(olusturanKullaniciId))
             {
@@ -85,7 +85,7 @@ public class SohbetlerController : ControllerBase
 
             foreach (var kullaniciId in request.KatilimciIdleri)
             {
-                _sohbetService.KullaniciyiSohbeteEkle(olusturulanSohbet.id, kullaniciId);
+                _sohbetService.AddUserToChat(olusturulanSohbet.id, kullaniciId);
             }
 
             return Ok(new { mesaj = "Grup başarıyla oluşturuldu!", sohbetId = olusturulanSohbet.id });
@@ -97,16 +97,16 @@ public class SohbetlerController : ControllerBase
     }
 
     // ========================================================================
-    // GÜNCELLENEN METOT: SOHBET LİSTESİNDE DİNAMİK İSİMLENDİRME
+    // SOHBET LİSTESİNDE DİNAMİK İSİMLENDİRME
     // ========================================================================
     [HttpGet("kullanici/{kullaniciId}")]
-    public IActionResult KullanicininSohbetleri(int kullaniciId)
+    public IActionResult UsersChat(int kullaniciId)
     {
         try
         {
-            var sohbetler = _sohbetService.KullanicininSohbetleriniGetir(kullaniciId);
+            var sohbetler = _sohbetService.GetUsersChat(kullaniciId);
             var tumKatilimcilar = _katilimciRepo.GetAll();
-            var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
+            var tumKullanicilar = _kullaniciService.GetAllUsers();
             var tumMesajlar = _mesajRepo.GetAll(); 
 
             var dinamikSohbetListesi = sohbetler.Select(s => 
@@ -173,12 +173,12 @@ public class SohbetlerController : ControllerBase
         }
     }
     [HttpGet("{sohbetId}/katilimcilar")]
-    public IActionResult GruptakiKisileriGetir(int sohbetId)
+    public IActionResult GetUsersInChat(int sohbetId)
     {
         try
         {
             var katilimciKayitlari = _katilimciRepo.GetAll().Where(k => k.sohbetid == sohbetId).ToList();
-            var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
+            var tumKullanicilar = _kullaniciService.GetAllUsers();
 
             var gruptakiKisiler = katilimciKayitlari.Select(k => {
                 var kullanici = tumKullanicilar.FirstOrDefault(u => u.Id == k.kullaniciid);
@@ -199,11 +199,11 @@ public class SohbetlerController : ControllerBase
     }
     
 [HttpPost("{sohbetId}/okundu-isaretle")]
-public IActionResult OkunduOlarakIsaretle(int sohbetId)
+public IActionResult MarkAsRead(int sohbetId)
 {
     try
     {
-        // 1. ÇÖZÜM: ID'yi hem NameIdentifier'da hem de "sub" içinde arıyoruz!
+        // 1. ÇÖZÜM: ID'yi hem NameIdentifier'da hem de "sub" içinde arıyoruz
         var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
                         ?? User.FindFirst("sub")?.Value;
 
@@ -233,7 +233,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
     }
 }
 [HttpGet("ara")]
-    public IActionResult GenelArama([FromQuery] string kelime)
+    public IActionResult Search([FromQuery] string kelime)
     {
         try
         {
@@ -252,12 +252,12 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
             var kullanicininSohbetIdleri = _katilimciRepo.GetAll()
                 .Where(k => k.kullaniciid == kullaniciId).Select(k => k.sohbetid).ToList();
 
-            var sohbetler = _sohbetService.KullanicininSohbetleriniGetir(kullaniciId)
+            var sohbetler = _sohbetService.GetUsersChat(kullaniciId)
                 .Where(s => (s.grupadi != null && s.grupadi.ToLower().Contains(kelime)))
                 .Select(s => new { id = s.id, ad = s.grupadi, tur = "sohbet" }).ToList();
 
         
-            var kisiler = _kullaniciService.TumKullanicilariGetir()
+            var kisiler = _kullaniciService.GetAllUsers()
                 .Where(k => k.Id != kullaniciId && k.AdSoyad.ToLower().Contains(kelime))
                 .Select(k => new { id = k.Id, ad = k.AdSoyad, tur = "kisi" }).ToList();
 
@@ -288,7 +288,7 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
         }
     }
     [HttpPost("birebir/{hedefKullaniciId}")]
-    public IActionResult BirebirSohbetBaslat(int hedefKullaniciId)
+    public IActionResult GetOrCreatePrivateChat(int hedefKullaniciId)
     {
         try
         {
@@ -300,8 +300,8 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
             if (benimId == hedefKullaniciId) 
                 return BadRequest("Kendinizle sohbet başlatamazsınız.");
 
-            // 1. KONTROL: Önceden bu iki kişi arasında birebir sohbet var mı?
-            var tumSohbetler = _sohbetService.KullanicininSohbetleriniGetir(benimId).Where(s => !s.grupmu).ToList();
+            // iki kişi arasında birebir sohbet var mı?
+            var tumSohbetler = _sohbetService.GetUsersChat(benimId).Where(s => !s.grupmu).ToList();
             var tumKatilimcilar = _katilimciRepo.GetAll();
 
             foreach (var sohbet in tumSohbetler)
@@ -309,17 +309,17 @@ public IActionResult OkunduOlarakIsaretle(int sohbetId)
                 var digerKisininKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == sohbet.id && k.kullaniciid == hedefKullaniciId);
                 if (digerKisininKaydi != null)
                 {
-                    // SİHİRLİ KISIM: Zaten sohbet var, yeni oluşturmadan mevcut ID'yi dönüyoruz
+                    // Zaten sohbet var, yeni oluşturmadan mevcut ID
                     return Ok(new { mesaj = "Sohbet zaten var.", sohbetId = sohbet.id, yeniMi = false });
                 }
             }
 
-            // 2. OLUŞTURMA: Yoksa yeni bir birebir sohbet oluştur
+            // Yoksa yeni bir birebir sohbet oluştur
             var yeniSohbet = new Chat { grupmu = false, olusturmaTarihi = DateTime.Now };
-            var olusturulan = _sohbetService.SohbetOlustur(yeniSohbet);
+            var olusturulan = _sohbetService.CreateChat(yeniSohbet);
 
-            _sohbetService.KullaniciyiSohbeteEkle(olusturulan.id, benimId);
-            _sohbetService.KullaniciyiSohbeteEkle(olusturulan.id, hedefKullaniciId);
+            _sohbetService.AddUserToChat(olusturulan.id, benimId);
+            _sohbetService.AddUserToChat(olusturulan.id, hedefKullaniciId);
 
             return Ok(new { mesaj = "Yeni sohbet oluşturuldu.", sohbetId = olusturulan.id, yeniMi = true });
         }

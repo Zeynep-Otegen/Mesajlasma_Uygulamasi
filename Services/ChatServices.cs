@@ -6,12 +6,12 @@ using STAJ1.Repositories;
 
 namespace STAJ1.Services;
 
-public class SohbetService : ISohbetService
+public class ChatService : IChatService
 {
     private readonly IGenericRepository<Chat> _sohbetRepository;
     private readonly IGenericRepository<ChatMember> _katilimciRepository;
 
-    public SohbetService(
+    public ChatService(
         IGenericRepository<Chat> sohbetRepository, 
         IGenericRepository<ChatMember> katilimciRepository)
     {
@@ -19,13 +19,13 @@ public class SohbetService : ISohbetService
         _katilimciRepository = katilimciRepository;
     }
 
-    public Chat SohbetOlustur(Chat yeniSohbet)
+    public Chat CreateChat(Chat yeniSohbet)
     {
         _sohbetRepository.Add(yeniSohbet);
         return yeniSohbet; // Eklendikten sonra veritabanından dönen Id ile birlikte
     }
 
-    public void KullaniciyiSohbeteEkle(int sohbetId, int kullaniciId)
+    public void AddUserToChat(int sohbetId, int kullaniciId)
     {
         var katilimci = new ChatMember
         {
@@ -35,7 +35,7 @@ public class SohbetService : ISohbetService
         _katilimciRepository.Add(katilimci);
     }
 
-    public IEnumerable<Chat> KullanicininSohbetleriniGetir(int kullaniciId)
+    public IEnumerable<Chat> GetUsersChat(int kullaniciId)
     {
         // Kullanıcının bulunduğu sohbet ID'lerini bul
         var kullanicininSohbetIdleri = _katilimciRepository.GetAll()

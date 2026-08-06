@@ -5,17 +5,17 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace SeninProjeAdin.Controllers // "SeninProjeAdin" kısmını kendi projene göre düzelt
+namespace SeninProjeAdin.Controllers 
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Dosya yüklemek için giriş yapmış (token almış) olmayı zorunlu kılıyoruz
-    public class DosyalarController : ControllerBase
+    [Authorize] 
+    public class FileController : ControllerBase
     {
         [HttpPost("yukle")]
-        public async Task<IActionResult> DosyaYukle([FromForm] IFormFile file, [FromForm] int sohbetId, [FromForm] int gonderenId)
+        public async Task<IActionResult> UploadFile([FromForm] IFormFile file, [FromForm] int sohbetId, [FromForm] int gonderenId)
         {
-            // 1. Dosyanın gelip gelmediğini kontrol et
+          
             if (file == null || file.Length == 0)
             {
                 return BadRequest("Lütfen geçerli bir dosya seçin.");
@@ -23,28 +23,28 @@ namespace SeninProjeAdin.Controllers // "SeninProjeAdin" kısmını kendi projen
 
             try
             {
-                // 2. Dosyaların kaydedileceği klasörü belirle (wwwroot/uploads klasörü)
+                // wwwroot/uploads klasörü
                 var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
                 
-                // Eğer "uploads" adında bir klasör henüz yoksa, otomatik oluştur
+                
                 if (!Directory.Exists(uploadsFolder))
                 {
                     Directory.CreateDirectory(uploadsFolder);
                 }
 
-                // 3. Dosya ismini eşsiz yap (Aynı isimde iki dosya yüklenirse birbirini ezmesin diye GUID kullanıyoruz)
+                //Dosya ism eşsiz (Aynı isimde iki dosya yüklenirse birbirini ezmesin diye GUID kullanıyoruz)
                 var orjinalUzantı = Path.GetExtension(file.FileName);
                 var benzersizDosyaAdi = Guid.NewGuid().ToString() + orjinalUzantı;
                 
                 var dosyaYolu = Path.Combine(uploadsFolder, benzersizDosyaAdi);
 
-                // 4. Dosyayı sunucuya (fiziksel olarak) kopyala/kaydet
+                //Dosyayı sunucuya kopyala/kaydet
                 using (var stream = new FileStream(dosyaYolu, FileMode.Create))
                 {
                     await file.CopyToAsync(stream);
                 }
 
-                // 5. Frontend tarafında bu dosyayı gösterebilmek için URL yolunu oluştur
+                // URL yolunu oluştur
                 var erisimUrl = $"/uploads/{benzersizDosyaAdi}";
 
                 return Ok(new { mesaj = "Dosya başarıyla yüklendi", dosyaYolu = erisimUrl });

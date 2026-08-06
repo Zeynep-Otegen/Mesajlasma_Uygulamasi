@@ -6,20 +6,20 @@ using System;
 using System.Linq; 
 using Microsoft.AspNetCore.SignalR; 
 using STAJ1.Hubs;
-using System.Threading.Tasks; // Task kullanımı için gerekli
+using System.Threading.Tasks; 
 
 namespace STAJ1.Controllers;
 
 [Authorize] 
 [ApiController]
 [Route("api/[controller]")]
-public class MesajlarController : ControllerBase
+public class MessageController : ControllerBase
 {
-    private readonly IMesajService _mesajService;
-    private readonly IKullaniciService _kullaniciService; 
+    private readonly IMessageService _mesajService;
+    private readonly IUserService _kullaniciService; 
     private readonly IHubContext<ChatHub> _hubContext;
 
-    public MesajlarController(IMesajService mesajService, IKullaniciService kullaniciService, IHubContext<ChatHub> hubContext)
+    public MessageController(IMessageService mesajService, IUserService kullaniciService, IHubContext<ChatHub> hubContext)
     {
         _mesajService = mesajService;
         _kullaniciService = kullaniciService;
@@ -27,18 +27,18 @@ public class MesajlarController : ControllerBase
     }
 
     [HttpGet("sohbet/{sohbetId}")]
-    public IActionResult SohbeteAitMesajlariGetir(int sohbetId)
+    public IActionResult GetMessageByChatId(int sohbetId)
     {
         try
         {
-            // 1. Aktif kullanıcının ID si
+            
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
     
             int aktifKullaniciId = int.Parse(userIdClaim);
 
-            // 2. Kullanıcının bu sohbetin bir üyesi olup olmadığı
-            bool yetkisiVarMi = _mesajService.KullaniciSohbetteMi(sohbetId, aktifKullaniciId);
+            
+            bool yetkisiVarMi = _mesajService.IsUserInChat(sohbetId, aktifKullaniciId);
 
             if (!yetkisiVarMi)
             {
@@ -46,8 +46,8 @@ public class MesajlarController : ControllerBase
                 return StatusCode(403, "Erişim Reddedildi: Bu sohbetin bir üyesi değilsiniz.");
             }
 
-            var mesajlar = _mesajService.SohbeteAitMesajlariGetir(sohbetId);
-            var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
+            var mesajlar = _mesajService.GetMessageByChatId(sohbetId);
+            var tumKullanicilar = _kullaniciService.GetAllUsers();
 
             var mesajListesi = mesajlar.Select(m => new
             {
@@ -56,7 +56,7 @@ public class MesajlarController : ControllerBase
                 gonderenid = m.gonderenid,
                 icerik = m.icerik,
                 gondermeTarihi = m.gondermeTarihi,
-                dosyaYolu = m.DosyaYolu, // EKLENDİ: Sayfa yenilendiğinde dosyaların gelmesi için
+                dosyaYolu = m.DosyaYolu, 
                 gonderenAd = tumKullanicilar.FirstOrDefault(k => k.Id == m.gonderenid)?.AdSoyad ?? "Bilinmeyen Kullanıcı"
             }).ToList();
 
@@ -69,7 +69,7 @@ public class MesajlarController : ControllerBase
     }
 
    [HttpPost]
-    public async Task<IActionResult> MesajGonder([FromBody] Message yeniMesaj) 
+    public async Task<IActionResult> SendMessage([FromBody] Message yeniMesaj) 
     {
         
         try
@@ -78,7 +78,7 @@ public class MesajlarController : ControllerBase
             if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
             
             int aktifKullaniciId = int.Parse(userIdClaim);
-            bool yetkisiVarMi = _mesajService.KullaniciSohbetteMi(yeniMesaj.sohbetid, aktifKullaniciId);
+            bool yetkisiVarMi = _mesajService.IsUserInChat(yeniMesaj.sohbetid, aktifKullaniciId);
 
             if (!yetkisiVarMi)
             {
@@ -87,9 +87,9 @@ public class MesajlarController : ControllerBase
             
             yeniMesaj.gondermeTarihi = DateTime.Now;
             // Veritabanına kaydetmesi için Servis katmanına gönderiliyor
-            _mesajService.MesajGonder(yeniMesaj);
+            _mesajService.SendMessage(yeniMesaj);
 
-            var tumKullanicilar = _kullaniciService.TumKullanicilariGetir();
+            var tumKullanicilar = _kullaniciService.GetAllUsers();
             var gonderenKisi = tumKullanicilar.FirstOrDefault(k => k.Id == yeniMesaj.gonderenid);
             var gonderenAd = gonderenKisi != null ? gonderenKisi.AdSoyad : "Bilinmeyen";
 
@@ -99,7 +99,7 @@ public class MesajlarController : ControllerBase
                 gonderenid = yeniMesaj.gonderenid,
                 icerik = yeniMesaj.icerik,
                 gondermeTarihi = yeniMesaj.gondermeTarihi,
-                dosyaYolu = yeniMesaj.DosyaYolu, // EKLENDİ: SignalR ile anlık dosya linkini fırlatmak için
+                dosyaYolu = yeniMesaj.DosyaYolu, 
                 gonderenAd = gonderenAd 
             };
             

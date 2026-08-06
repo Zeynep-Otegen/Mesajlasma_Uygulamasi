@@ -88,7 +88,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 });
 
 
-builder.Services.AddScoped<IKullaniciService, KullaniciService>();
+builder.Services.AddScoped<IUserService, UserService>();
 // Sisteme Jenerik Kilerimizi tanıtıyoruz:
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
@@ -96,9 +96,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 
-builder.Services.AddScoped<IMesajService, MesajService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 
-builder.Services.AddScoped<ISohbetService, SohbetService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 builder.Services.AddSingleton<IRedisService, RedisService>();
 

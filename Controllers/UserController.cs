@@ -4,23 +4,23 @@ using STAJ1.Services;
 using STAJ1.Repositories; 
 using Microsoft.AspNetCore.Authorization;
 using System; 
-using System.Linq; // LINQ sorguları için eklendi
+using System.Linq;
 
 namespace STAJ1.Controllers;
 
 [Authorize]
 [ApiController]
 [Route("api/[controller]")] 
-public class KullanicilarController : ControllerBase
+public class UserController : ControllerBase
 {
-    private readonly IKullaniciService _kullaniciService;
+    private readonly IUserService _kullaniciService;
     private readonly IGenericRepository<UserLog> _logRepository; 
-    private readonly IRedisService _redisService; // YENİ EKLENDİ
+    private readonly IRedisService _redisService; 
 
-    public KullanicilarController(
-        IKullaniciService kullaniciService, 
+    public UserController(
+        IUserService kullaniciService, 
         IGenericRepository<UserLog> logRepository,
-        IRedisService redisService) // YENİ EKLENDİ
+        IRedisService redisService) 
     {
         _kullaniciService = kullaniciService;
         _logRepository = logRepository;
@@ -29,13 +29,13 @@ public class KullanicilarController : ControllerBase
 
     [Authorize]
     [HttpGet]
-    public IActionResult Getir()
+    public IActionResult Get()
     {
         // 1. Veritabanından (PostgreSQL) herkesi çek
-        var kullanicilar = _kullaniciService.TumKullanicilariGetir();
+        var kullanicilar = _kullaniciService.GetAllUsers();
         
         // 2. RAM'den (Redis) sadece online olanların ID listesini çek
-        var onlineKullaniciIdleri = _redisService.CevrimiciKullanicilariGetir();
+        var onlineKullaniciIdleri = _redisService.GetOnlineUsers();
 
         // 3. Verileri birleştirip (DTO Mantığı) Frontend'e yolla
         var sonuc = kullanicilar.Select(k => new 
@@ -52,9 +52,9 @@ public class KullanicilarController : ControllerBase
 
     [Authorize] 
     [HttpGet("grup-icin-liste")]
-    public IActionResult GrupIcinKullanicilariGetir()
+    public IActionResult GetUsersByChatId()
     {
-        var kullanicilar = _kullaniciService.TumKullanicilariGetir()
+        var kullanicilar = _kullaniciService.GetAllUsers()
             .Select(k => new { 
                 id = k.Id, 
                 adsoyad = k.AdSoyad, 
@@ -66,11 +66,11 @@ public class KullanicilarController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Ekle([FromBody] User yeniKullanici)
+    public IActionResult Add([FromBody] User yeniKullanici)
     {
         try
         {
-            _kullaniciService.KullaniciEkle(yeniKullanici);
+            _kullaniciService.AddUser(yeniKullanici);
             return Ok("Kullanıcı başarıyla eklendi.");
         }
         catch (Exception ex)
@@ -80,11 +80,11 @@ public class KullanicilarController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public IActionResult Guncelle(int id, [FromBody] User guncelKullanici)
+    public IActionResult Update(int id, [FromBody] User guncelKullanici)
     {
         try
         {
-            _kullaniciService.KullaniciGuncelle(id, guncelKullanici);
+            _kullaniciService.UpdateUser(id, guncelKullanici);
 
             var yeniLog = new UserLog
             {
@@ -104,11 +104,11 @@ public class KullanicilarController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public IActionResult Sil(int id)
+    public IActionResult Delete(int id)
     {
         try
         {
-            _kullaniciService.KullaniciSil(id);
+            _kullaniciService.DeleteUser(id);
 
             var yeniLog = new UserLog
             {
@@ -128,7 +128,7 @@ public class KullanicilarController : ControllerBase
     // SADECE ADMIN ROLÜNE SAHİP OLANLAR GİREBİLİR
 [Authorize(Roles = "Admin")] 
 [HttpDelete("kullanici-sil/{id}")]
-public IActionResult KullaniciSil(int id)
+public IActionResult DeleteUser(int id)
 {
     // Gerçekte silinmeyecek, kanıtlamak için log kayıdı oluşturacak
     return Ok(new { mesaj = $"{id} numaralı kullanıcı sistemden silindi. (Admin Yetkisi Doğrulandı!)" });

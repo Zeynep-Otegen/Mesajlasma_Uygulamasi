@@ -9,7 +9,7 @@ namespace STAJ1.Services;
 public class AuthService : IAuthService
 {
     private readonly IGenericRepository<User> _repository;
-    private readonly UygulamaDbContext _context; // Rolleri Join ile çekmek için ekledik
+    private readonly UygulamaDbContext _context; // Rolleri Join ile çekmek için eklendi
 
     public AuthService(IGenericRepository<User> repository, UygulamaDbContext context)
     {
