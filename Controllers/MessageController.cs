@@ -12,7 +12,7 @@ namespace STAJ1.Controllers;
 
 [Authorize] 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/mesajlar")]
 public class MessageController : ControllerBase
 {
     private readonly IMessageService _mesajService;
@@ -26,30 +26,38 @@ public class MessageController : ControllerBase
         _hubContext = hubContext;
     }
 
+   
+    
     [HttpGet("sohbet/{sohbetId}")]
-    public IActionResult GetMessageByChatId(int sohbetId)
+    public IActionResult GetMessageByChatId(int sohbetId, [FromQuery] int sayfa = 1, [FromQuery] int limit = 20)
     {
         try
         {
-            
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
     
             int aktifKullaniciId = int.Parse(userIdClaim);
 
-            
             bool yetkisiVarMi = _mesajService.IsUserInChat(sohbetId, aktifKullaniciId);
-
             if (!yetkisiVarMi)
             {
-                // Yetkisi yoksa 403 Forbidden döndür
                 return StatusCode(403, "Erişim Reddedildi: Bu sohbetin bir üyesi değilsiniz.");
             }
 
-            var mesajlar = _mesajService.GetMessageByChatId(sohbetId);
+            // RAM'i koruyan Pagination (Sayfalama) algoritması
+            var pagedMesajlar = _mesajService.GetMessageByChatId(sohbetId)
+                                    .OrderByDescending(m => m.gondermeTarihi) 
+                                    .Skip((sayfa - 1) * limit) 
+                                    .Take(limit) 
+                                    .OrderBy(m => m.gondermeTarihi) 
+                                    .ToList();
+
+            
+         
+
             var tumKullanicilar = _kullaniciService.GetAllUsers();
 
-            var mesajListesi = mesajlar.Select(m => new
+            var mesajListesi = pagedMesajlar.Select(m => new
             {
                 m.id,
                 m.sohbetid,

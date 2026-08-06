@@ -107,7 +107,7 @@ public class ChatController : ControllerBase
             var sohbetler = _sohbetService.GetUsersChat(kullaniciId);
             var tumKatilimcilar = _katilimciRepo.GetAll();
             var tumKullanicilar = _kullaniciService.GetAllUsers();
-            var tumMesajlar = _mesajRepo.GetAll(); 
+           var mesajSorgusu = _mesajRepo.GetAll();
 
             var dinamikSohbetListesi = sohbetler.Select(s => 
             {
@@ -125,12 +125,17 @@ public class ChatController : ControllerBase
 
                 var kullanicininKatilimKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid == kullaniciId);
                 DateTime? sonOkuma = kullanicininKatilimKaydi?.SonOkumaTarihi;
+                // SQL'den sadece son mesajı istiyoruz (LIMIT 1 sorgusu gider).
+                var sonMesaj = mesajSorgusu
+                                .Where(m => m.sohbetid == s.id)
+                                .OrderByDescending(m => m.gondermeTarihi)
+                                .FirstOrDefault();
                 
-                var buSohbetinMesajlari = tumMesajlar.Where(m => m.sohbetid == s.id).OrderByDescending(m => m.gondermeTarihi).ToList();
-                var sonMesaj = buSohbetinMesajlari.FirstOrDefault();
-
-                int okunmamisSayisi = buSohbetinMesajlari
-                    .Count(m => m.gonderenid != kullaniciId && (sonOkuma == null || m.gondermeTarihi > sonOkuma));
+                
+                // Okunmamış mesaj sayısını hesaplarken de RAM'e çekmiyoruz,
+                // Count() fonksiyonu doğrudan SQL'de "SELECT COUNT" olarak çalışır!
+                int okunmamisSayisi = mesajSorgusu
+                    .Count(m => m.sohbetid == s.id && m.gonderenid != kullaniciId && (sonOkuma == null || m.gondermeTarihi > sonOkuma));
                 
                 string sonMesajGonderen = "";
                 string onizlemeMetni = "Henüz mesaj yok...";
@@ -157,7 +162,6 @@ public class ChatController : ControllerBase
                     sonMesajIcerik = onizlemeMetni,
                     sonMesajTarihi = sonMesaj != null ? sonMesaj.gondermeTarihi : s.olusturmaTarihi,
                     sonMesajGonderenAd = sonMesajGonderen,
-                    // YENİ EKLENEN SATIR: JS'e bu mesajı kimin attığını ID olarak söylüyoruz
                     sonMesajGonderenId = sonMesaj != null ? sonMesaj.gonderenid : 0 
                 };
             })

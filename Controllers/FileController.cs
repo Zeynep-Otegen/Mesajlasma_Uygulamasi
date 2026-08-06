@@ -16,43 +16,52 @@ namespace SeninProjeAdin.Controllers
         public async Task<IActionResult> UploadFile([FromForm] IFormFile file, [FromForm] int sohbetId, [FromForm] int gonderenId)
         {
           
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("Lütfen geçerli bir dosya seçin.");
-            }
+           
+    if (file == null || file.Length == 0)
+    {
+        return BadRequest("Lütfen geçerli bir dosya seçin.");
+    }
 
-            try
-            {
-                // wwwroot/uploads klasörü
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-                
-                
-                if (!Directory.Exists(uploadsFolder))
-                {
-                    Directory.CreateDirectory(uploadsFolder);
-                }
+    // Maksimum 5 MB - DoS Saldırısı Koruması
+    const long maxBoyut = 5 * 1024 * 1024; // 5 MB
+    if (file.Length > maxBoyut)
+    {
+        return BadRequest("Dosya boyutu 5 MB'den büyük olamaz!");
+    }
 
-                //Dosya ism eşsiz (Aynı isimde iki dosya yüklenirse birbirini ezmesin diye GUID kullanıyoruz)
-                var orjinalUzantı = Path.GetExtension(file.FileName);
-                var benzersizDosyaAdi = Guid.NewGuid().ToString() + orjinalUzantı;
-                
-                var dosyaYolu = Path.Combine(uploadsFolder, benzersizDosyaAdi);
+    
+    var izinVerilenUzantilar = new[] { ".jpg", ".jpeg", ".png", ".pdf", ".docx", ".txt" };
+    var dosyaUzantisi = Path.GetExtension(file.FileName).ToLowerInvariant();
 
-                //Dosyayı sunucuya kopyala/kaydet
-                using (var stream = new FileStream(dosyaYolu, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
+    if (string.IsNullOrEmpty(dosyaUzantisi) || !izinVerilenUzantilar.Contains(dosyaUzantisi))
+    {
+        return BadRequest("Güvenlik ihlali: Bu dosya türünün yüklenmesine izin verilmiyor!");
+    }
 
-                // URL yolunu oluştur
-                var erisimUrl = $"/uploads/{benzersizDosyaAdi}";
+    
+    var guvenliDosyaAdi = Guid.NewGuid().ToString() + dosyaUzantisi;
 
-                return Ok(new { mesaj = "Dosya başarıyla yüklendi", dosyaYolu = erisimUrl });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Sunucu hatası: {ex.Message}");
-            }
+    // Dosyanın kaydedileceği klasör yolu 
+    var kayitYolu = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+
+    // Eğer klasör yoksa oluştur
+    if (!Directory.Exists(kayitYolu))
+    {
+        Directory.CreateDirectory(kayitYolu);
+    }
+
+    var tamYol = Path.Combine(kayitYolu, guvenliDosyaAdi);
+
+    // Dosyayı sunucuya kaydet
+    using (var stream = new FileStream(tamYol, FileMode.Create))
+    {
+        await file.CopyToAsync(stream);
+    }
+
+    // Frontend'in dosyaya ulaşabilmesi için erişim linkini dönüyoruz
+    var dosyaErisimLinki = $"/uploads/{guvenliDosyaAdi}";
+    
+    return Ok(new { dosyaYolu = dosyaErisimLinki });
         }
     }
 }

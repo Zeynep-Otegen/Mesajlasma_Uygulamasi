@@ -165,7 +165,7 @@ function htmlGuvenliYap(metin) {
             
             
             const response = await fetch("/api/kullanicilar/grup-icin-liste", {
-                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                credentials: "include", 
 headers: { 
     "Content-Type": "application/json" 
 }
@@ -234,7 +234,7 @@ headers: {
             try {
                 const response = await fetch("/api/sohbetler/grup-olustur", {
                     method: "POST",
-                    credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                    credentials: "include", 
                     headers: { 
                             "Content-Type": "application/json" 
                             },
@@ -266,8 +266,10 @@ headers: {
     const messagesContainer = document.getElementById("messages-container");
     let aktifSohbetId = null; 
     let benimKullaniciIdm = null; 
+    let suAnkiSayfa = 1;               
+    let dahaFazlaMesajVarMi = true;    
+    let mesajlarYukleniyor = false;    //Arka arkaya iki istek atmayı önler
 
-    // Kim giden, kim gelen mesajlarını ayırt edebilmek için kendi kullanıcı ID'mizi alıyoruz
    function kendiIdmiAl() {
     return parseInt(aktifKullanici.id);
                         }
@@ -296,12 +298,17 @@ headers: {
         const badge = chatItem.querySelector(".unread-badge");
         if (badge) badge.remove();
 
-        await window.sohbetiAc(id, sohbetAdi); // DİKKAT: Bağımsız fonksiyona devrettik
+        await window.sohbetiAc(id, sohbetAdi); 
     });
 
-    // YENİ EKLENEN: Her Yerden Çağrılabilir Sohbet Açma Fonksiyonu
+    //  Sohbet Açma Fonksiyonu
     window.sohbetiAc = async function(id, sohbetAdi = "Sohbet") {
         aktifSohbetId = id;
+        
+        //Yeni sohbette hafıza sıfırlanır
+        suAnkiSayfa = 1;
+        dahaFazlaMesajVarMi = true;
+        mesajlarYukleniyor = false; 
         
         const titleEl = document.getElementById("chat-header-title");
         const membersEl = document.getElementById("chat-header-members");
@@ -314,20 +321,21 @@ headers: {
 
         fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
             method: "POST",
-            credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
-headers: { 
-    "Content-Type": "application/json" 
-}
+            credentials: "include", 
+            headers: { 
+                "Content-Type": "application/json" 
+            }
         }).catch(err => console.error("Okundu işaretlenirken hata:", err));
         
-        await mesajlariGetir(aktifSohbetId);
+        // İlk yükleme (yukariKaydirmaMi = false) olarak çağırıyoruz
+        await mesajlariGetir(aktifSohbetId, false);
     };
 
     
     async function gruptakiKisileriGetir(sohbetId) {
         try {
             const response = await fetch(`/api/sohbetler/${sohbetId}/katilimcilar`, {
-                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                credentials: "include", 
 headers: { 
     "Content-Type": "application/json" 
 }
@@ -355,76 +363,131 @@ headers: {
         }
     }
 
-    async function mesajlariGetir(sohbetId) {
-        messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Mesajlar yükleniyor...</p>";
+    async function mesajlariGetir(sohbetId, yukariKaydirmaMi = false) {
+        // Eğer zaten yükleniyorsa veya geçmiş bittiyse işlemi durdur
+        if (yukariKaydirmaMi && (mesajlarYukleniyor || !dahaFazlaMesajVarMi)) return;
+
+            mesajlarYukleniyor = true;
+
+        if (!yukariKaydirmaMi) {
+            // Sohbete sol menüden ilk defa tıklandıysa sayfayı sıfırla
+            messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'><i class='fas fa-spinner fa-spin'></i> Yükleniyor...</p>";
+            suAnkiSayfa = 1;
+            dahaFazlaMesajVarMi = true;
+        } else {
+            // Kullanıcı yukarı kaydırdıysa (geçmişi istiyorsa) geçici bir 'Yükleniyor' yazısı koy
+            const loader = document.createElement("div");
+            loader.id = "eski-mesaj-loader";
+            loader.innerHTML = "<p style='text-align:center; color:#888; font-size:12px; margin:5px;'>Eski mesajlar yükleniyor...</p>";
+            messagesContainer.prepend(loader);
+        }
         
         try {
-            const response = await fetch(`/api/mesajlar/sohbet/${sohbetId}`, {
-                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
-headers: { 
-    "Content-Type": "application/json" 
-}
+            const limit = 20; // Her seferinde 20 mesaj çekeceğiz
+            console.log(`🔄 [SAYFALAMA] Sohbet ID: ${sohbetId} | İstek Atılan Sayfa: ${suAnkiSayfa} | Beklenen Mesaj: ${limit}`);
+            const response = await fetch(`/api/mesajlar/sohbet/${sohbetId}?sayfa=${suAnkiSayfa}&limit=${limit}`, {
+                credentials: "include", 
+                headers: { "Content-Type": "application/json" }
             });
 
             if (response.ok) {
-                const mesajlar = await response.json();
+            const mesajlar = await response.json();
+            console.log(`✅ [BAŞARILI] Veritabanından ${mesajlar.length} adet mesaj çekildi. (Sayfa: ${suAnkiSayfa})`);
+            
+            if (!yukariKaydirmaMi) {
                 messagesContainer.innerHTML = ""; 
-
-                if (mesajlar.length === 0) {
-                    messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Burada henüz hiç mesaj yok. İlk mesajı sen gönder!</p>";
-                    return;
-                }
-
-                mesajlar.forEach(m => {
-                    // Tip dönüşümü ile güvenlik 
-                    const gonderenId = m.gonderenid || m.Gonderenid || m.kullaniciid;
-                    const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
-                    
-                    const metin = m.icerik || m.Icerik || m.mesaj || m.MesajMetni;
-                    
-                    // Invalid Date çözümü için doğru C# model özelliği
-                   // ESKİ VE SORUNLU KISIM (formatliTarih ve "Z" olan satırları tamamen siliyoruz)
-const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
-let saatString = "";
-if (hamTarih) {
-    const tarihObje = new Date(hamTarih);
-    saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-}
-
-                   
-                    const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
-
-                    const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
-                    ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id);
-                });
             } else {
-                messagesContainer.innerHTML = "<p style='text-align:center; color:red; margin-top:20px;'>Mesajlar alınamadı.</p>";
+                document.getElementById("eski-mesaj-loader")?.remove();
             }
-        } catch (error) {
-            messagesContainer.innerHTML = "<p style='text-align:center; color:red; margin-top:20px;'>Bağlantı hatası.</p>";
+
+            if (mesajlar.length === 0 && !yukariKaydirmaMi) {
+                messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Burada henüz hiç mesaj yok. İlk mesajı sen gönder!</p>";
+                mesajlarYukleniyor = false;
+                return;
+            }
+
+            // 1. DÜZELTME: Eski koddaki "Sohbetin Başı" HTML oluşturma kısmını buradan SİLDİK! 
+            // Sadece geçmişin bittiğini değişkene söylüyoruz.
+            if (mesajlar.length < limit) {
+                dahaFazlaMesajVarMi = false;
+            }
+
+            const eskiScrollYuksekligi = messagesContainer.scrollHeight;
+
+            if (yukariKaydirmaMi) {
+                mesajlar.reverse();
+            }
+
+            mesajlar.forEach(m => {
+                const gonderenId = m.gonderenid || m.Gonderenid || m.kullaniciid;
+                const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
+                const metin = m.icerik || m.Icerik || m.mesaj || m.MesajMetni;
+                
+                const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
+                let saatString = "";
+                if (hamTarih) {
+                    const tarihObje = new Date(hamTarih);
+                    saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                }
+                
+                const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
+                const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
+                
+                ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id, yukariKaydirmaMi);
+            });
+
+            // =========================================================
+            // 2. DÜZELTME (SİHİRLİ KISIM): Yazıyı DÖNGÜDEN SONRA koyuyoruz!
+            // =========================================================
+            if (!dahaFazlaMesajVarMi && !document.getElementById("sohbet-basi-etiketi")) {
+                const sohbetBasi = document.createElement("p");
+                sohbetBasi.id = "sohbet-basi-etiketi"; // Çift eklemeyi önlemek için ID verdik
+                sohbetBasi.style = "text-align:center; color:#ccc; font-size:11px; margin: 15px 0;";
+                sohbetBasi.textContent = "--- Sohbetin Başı ---";
+                
+                // Bütün eski mesajlar eklendikten sonra en üste koyduğu için kesinlikle TEPEYE oturacak!
+                messagesContainer.prepend(sohbetBasi); 
+            }
+
+            // Scroll Bar Ayarlaması
+            if (yukariKaydirmaMi) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight - eskiScrollYuksekligi;
+            } else {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            suAnkiSayfa++; 
         }
+        } catch (error) {
+            console.error("Mesajlar çekilirken hata:", error);
+        }
+        mesajlarYukleniyor = false; // Kilidi aç
     }
 
+    // 2. KAYDIRMA (SCROLL) OLAYINI DİNLEYEN TETİKLEYİCİ (YENİ)
+    messagesContainer.addEventListener("scroll", () => {
+        // Eğer kullanıcı mesajlarda en yukarı (0 noktasına) ulaştıysa geçmiş mesajları yükle
+        if (messagesContainer.scrollTop === 0 && dahaFazlaMesajVarMi && !mesajlarYukleniyor && aktifSohbetId) {
+            mesajlariGetir(aktifSohbetId, true); 
+        }
+    });
+
     
-    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null,mesajId = null) {
+    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null, mesajId = null, usteEkle = false) {
         if (!text || text.trim() === "") return;
         const guvenliMetin = htmlGuvenliYap(text);
 
         const messageDiv = document.createElement("div");
         messageDiv.classList.add("message");
         messageDiv.classList.add(isSent ? "sent" : "received");
+        if(mesajId) messageDiv.dataset.mesajid = mesajId; // Arama kısmı için ID'yi de gömüyoruz
 
         let isimHtml = (!isSent && gonderenKisi) ? `<span style="font-size:11px; font-weight:bold; color:#008069; display:block; margin-bottom:3px;">${gonderenKisi}</span>` : "";
-
-      
         let sesIkonu = `<i class="fas fa-volume-up btn-seslendir" style="cursor:pointer; color:#888; font-size:13px; margin-left:10px;" title="Bu mesajı seslendir"></i>`;
-
         
         let dosyaHtml = "";
         if (dosyaYolu) {
-          
             const dosyaAdi = dosyaYolu.split('/').pop() || "Ekli Dosya";
-            
             dosyaHtml = `
                 <div style="margin-top: 8px; padding: 8px; background-color: rgba(0,0,0,0.05); border-radius: 6px; display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-file-download" style="color: #008069; font-size: 20px;"></i>
@@ -434,7 +497,6 @@ if (hamTarih) {
                 </div>
             `;
         }
-        
 
         messageDiv.innerHTML = `
             ${isimHtml}
@@ -443,19 +505,25 @@ if (hamTarih) {
                     <p style="margin: 0; flex: 1;">${guvenliMetin}</p>
                     ${sesIkonu}
                 </div>
-                ${dosyaHtml} <!-- DOSYA KUTUSUNU BURAYA BASTIK -->
+                ${dosyaHtml}
             </div>
             <span class="msg-time">${timeString}</span>
         `;
 
-        // Tıklama Olayı: Kullanıcı hoparlöre basarsa metni seslendir
         const btnSes = messageDiv.querySelector('.btn-seslendir');
-        btnSes.addEventListener('click', () => {
-            metniSeslendir(text); 
-        });
+        btnSes.addEventListener('click', () => { metniSeslendir(text); });
 
-        messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight; // En alta kaydır
+        // SİHİR BURADA: Uste mi (eski mesaj), Alta mı (yeni mesaj) eklenmeli?
+        if (usteEkle) {
+            messagesContainer.prepend(messageDiv);
+        } else {
+            messagesContainer.appendChild(messageDiv);
+        }
+
+        // Sadece normal (ilk) yüklemelerde ve canlı mesaj geldiğinde en alta kaydırır
+        if (!usteEkle) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
     }
 
  
@@ -489,7 +557,7 @@ if (hamTarih) {
                 // DosyalarController'a dosyayı fırlatıyoruz
                 const uploadRes = await fetch("/api/dosyalar/yukle", {
                     method: "POST",
-                    credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                    credentials: "include", 
 headers: { 
     "Content-Type": "application/json" 
 },
@@ -521,7 +589,7 @@ headers: {
             const apiAdresi = "/api/mesajlar"; 
             const response = await fetch(apiAdresi, {
                 method: "POST",
-                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                credentials: "include", 
                     headers: { 
                         "Content-Type": "application/json" 
                             },
@@ -605,7 +673,7 @@ const connection = new signalR.HubConnectionBuilder()
         // Mesajı anında gördüğü için arka planda saati hemen güncelleyelim ki rozet oluşmasın
         fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
             method: "POST",
-            credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+            credentials: "include", 
 headers: { 
     "Content-Type": "application/json" 
 }
@@ -772,7 +840,7 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             //Güvenli C# sunucuya istek atılır.
             const response = await fetch("/api/tts/seslendir", {
                 method: "POST",
-                credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                credentials: "include", 
                 headers: { 
                             "Content-Type": "application/json" 
                         },
@@ -934,7 +1002,7 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             try {
                 
                 const response = await fetch("/api/kullanicilar", { 
-                    credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                    credentials: "include", 
 headers: { 
     "Content-Type": "application/json" 
 }
@@ -1028,7 +1096,7 @@ headers: {
             // C# API'sine hedef kişinin ID'sini gönderiyoruz (Varsa getir, yoksa oluştur)
             const response = await fetch(`/api/sohbetler/birebir/${hedefKullaniciId}`, {
                 method: "POST",
-               credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+               credentials: "include", 
 headers: { 
     "Content-Type": "application/json" 
 }
@@ -1079,7 +1147,7 @@ headers: {
             aramaZamanlayici = setTimeout(async () => {
                 try {
                     const response = await fetch(`/api/sohbetler/ara?kelime=${kelime}`, {
-                        credentials: "include", // Sihirli kelime bu! Tarayıcıya "Çerezleri (Cookie) de yolla" der.
+                        credentials: "include", 
 headers: { 
     "Content-Type": "application/json" 
 }
