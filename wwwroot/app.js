@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-    const token = localStorage.getItem("token");
-    if (!token) {
+    const kullaniciVerisi = localStorage.getItem("kullanici");
+if (!kullaniciVerisi) {
         // Token yoksa demek ki giriş yapmamış, logine geri gönder
         window.location.href = "login.html";
         return;
@@ -14,137 +14,122 @@ function htmlGuvenliYap(metin) {
     return div.innerHTML;    
 }
     // Arayüz Elementleri
+    const aktifKullanici = JSON.parse(kullaniciVerisi);
     const currentUserName = document.getElementById("current-user-name");
     const currentUserEmail = document.getElementById("current-user-email");
     const chatList = document.getElementById("chat-list");
     const logoutBtn = document.getElementById("logout-btn");
 
     // 1. KİMLİK BİLGİLERİNİ GETİR VE YAZDIR
-    async function kullaniciBilgileriniGetir() {
-        try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const decodedJson = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            
-            const tokenData = JSON.parse(decodedJson);
-            console.log("🛠️ TOKEN İÇERİĞİ GELDİ:", tokenData); 
-
-            const isim = tokenData.AdSoyad || tokenData.name || tokenData.unique_name || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] || "İsimsiz Kullanıcı";
-            const email = tokenData.Eposta || tokenData.email || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] || "Email bulunamadı";
-
-            currentUserName.textContent = isim;
-            currentUserEmail.textContent = email;
-
-        } catch (error) {
-            console.error("Token çözülürken hata:", error);
-        }
-    }
+   async function kullaniciBilgileriniGetir() {
+    currentUserName.textContent = aktifKullanici.adSoyad || "İsimsiz Kullanıcı";
+    currentUserEmail.textContent = aktifKullanici.eposta || "Email bulunamadı";
+}
 
     
     // 2. SOHBETLERİ GETİR
    
     async function sohbetleriGetir() {
-        try {
-            const temizToken = token.replace(/[^A-Za-z0-9\-_.]/g, "");
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const decodedJson = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            const tokenData = JSON.parse(decodedJson);
-            
-            const kullaniciId = tokenData.sub || tokenData.nameid || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+    try {
+        // ESKİ UZUN TOKEN ÇÖZME İŞLEMLERİNİ TAMAMEN SİLDİK!
+        // Artık ID'yi doğrudan temiz objemizden alıyoruz:
+        const kullaniciId = aktifKullanici.id;
 
-            if (!kullaniciId) {
-                console.error("Token içinde kullanıcı ID bulunamadı!");
+        if (!kullaniciId) {
+            console.error("Kullanıcı ID bulunamadı!");
+            return;
+        }
+
+        console.log(`📡 Sohbetler API'sine istek atılıyor... Hedef: /api/sohbetler/kullanici/${kullaniciId}`);
+        
+        const response = await fetch(`/api/sohbetler/kullanici/${kullaniciId}`, {
+            method: "GET",
+            credentials: "include", // SİHİRLİ KELİME: Gizli Cookie'yi sunucuya otomatik yollar
+            headers: {
+                "Content-Type": "application/json"
+                // "Authorization" satırını tamamen kaldırdık!
+            }
+        });
+
+        if (response.ok) {
+            const sohbetler = await response.json();
+            chatList.innerHTML = ""; 
+
+            if (sohbetler.length === 0) {
+                chatList.innerHTML = "<p style='padding: 15px; color: #667781; text-align: center; font-size: 14px;'>Henüz hiç sohbet odası yok.</p>";
                 return;
             }
 
-            console.log(`📡 Sohbetler API'sine istek atılıyor... Hedef: /api/sohbetler/kullanici/${kullaniciId}`);
-            
-            const response = await fetch(`/api/sohbetler/kullanici/${kullaniciId}`, {
-                method: "GET",
-                headers: {
-                    "Authorization": "Bearer " + temizToken,
-                    "Content-Type": "application/json"
+            sohbetler.forEach(sohbet => {
+                const chatItem = document.createElement("div");
+                chatItem.classList.add("chat-item");
+                chatItem.dataset.id = sohbet.id; 
+
+                const badgeHtml = sohbet.okunmamisMesajSayisi > 0 
+                    ? `<div class="unread-badge">${sohbet.okunmamisMesajSayisi}</div>` 
+                    : "";
+
+                let onizleme = sohbet.sonMesajIcerik || "Henüz mesaj yok...";
+
+                if (onizleme !== "Henüz mesaj yok...") {
+                    const gidenMesajId = sohbet.sonMesajGonderenId || sohbet.SonMesajGonderenId || 0;
+                    if (Number(gidenMesajId) === Number(kullaniciId) && Number(gidenMesajId) !== 0) {
+                        onizleme = `Siz: ${onizleme}`;
+                    } else if (sohbet.grupmu && sohbet.sonMesajGonderenAd) {
+                        let kisaAd = sohbet.sonMesajGonderenAd.split(' ')[0];
+                        onizleme = `~${kisaAd}: ${onizleme}`;
+                    }
                 }
-            });
 
-            if (response.ok) {
-                const sohbetler = await response.json();
-                chatList.innerHTML = ""; 
-
-                if (sohbetler.length === 0) {
-                    chatList.innerHTML = "<p style='padding: 15px; color: #667781; text-align: center; font-size: 14px;'>Henüz hiç sohbet odası yok.</p>";
-                    return;
-                }
-
-                sohbetler.forEach(sohbet => {
-                    const chatItem = document.createElement("div");
-                    chatItem.classList.add("chat-item");
-                    chatItem.dataset.id = sohbet.id; 
-
-                    //Rozet HTML'i (Sadece 1 kez tanımlandı)
-                    const badgeHtml = sohbet.okunmamisMesajSayisi > 0 
-                        ? `<div class="unread-badge">${sohbet.okunmamisMesajSayisi}</div>` 
-                        : "";
-
-                   
+                if (onizleme.length > 35) onizleme = onizleme.substring(0, 35) + "...";
+                onizleme = htmlGuvenliYap(onizleme);
                     
-        //WHATSAPP STİLİ ÖNİZLEME (35 Karakter Sınırı)
-let onizleme = sohbet.sonMesajIcerik || "Henüz mesaj yok...";
-
-if (onizleme !== "Henüz mesaj yok...") {
-    
-    const gidenMesajId = sohbet.sonMesajGonderenId || sohbet.SonMesajGonderenId || 0;
-    
-    
-    if (Number(gidenMesajId) === Number(kullaniciId) && Number(gidenMesajId) !== 0) {
-        onizleme = `Siz: ${onizleme}`;
-    } 
-   
-    else if (sohbet.grupmu && sohbet.sonMesajGonderenAd) {
-        let kisaAd = sohbet.sonMesajGonderenAd.split(' ')[0];
-        onizleme = `~${kisaAd}: ${onizleme}`;
+                chatItem.innerHTML = `
+                    <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
+                    <div class="chat-details">
+                        <div class="chat-title">
+                            <h4>${sohbet.grupadi || sohbet.grupAdi || sohbet.GrupAdi || "İsimsiz Sohbet"}</h4>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                <span class="time">-</span>
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                        <div class="chat-last-message">
+                            <p>${onizleme}</p>
+                        </div>
+                    </div>
+                `;
+                chatList.appendChild(chatItem);
+            });
+        }
+        else {
+            // YENİ EKLENEN KISIM: Eğer API bizi reddederse sessiz kalmasın!
+            console.error("🚨 API Hatası:", response.status);
+            if (response.status === 401) {
+                alert("Oturumunuzun süresi dolmuş veya Çerez (Cookie) alınamamış. Lütfen tekrar giriş yapın!");
+                localStorage.removeItem("kullanici");
+                window.location.href = "login.html"; // Logine geri at
+            }
+        }
+    } catch (error) {
+        console.error("🚨 Sunucuya bağlanırken hata oluştu:", error);
     }
 }
 
-// GÜVENLİ 
-if (onizleme.length > 35) onizleme = onizleme.substring(0, 35) + "...";
-onizleme = htmlGuvenliYap(onizleme);
-                   
-                    chatItem.innerHTML = `
-                        <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
-                        <div class="chat-details">
-                            <div class="chat-title">
-                                <h4>${sohbet.grupadi || sohbet.grupAdi || sohbet.GrupAdi || "İsimsiz Sohbet"}</h4>
-                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                    <span class="time">-</span>
-                                    ${badgeHtml}
-                                </div>
-                            </div>
-                            <div class="chat-last-message">
-                                <p>${onizleme}</p>
-                            </div>
-                        </div>
-                    `;
-                    chatList.appendChild(chatItem);
-                });
-            }
-        } catch (error) {
-            console.error("🚨 Sunucuya bağlanırken hata oluştu:", error);
-        }
-    }
-
     // Çıkış Yapma
     if (logoutBtn) {
-        logoutBtn.addEventListener("click", () => {
-            localStorage.removeItem("token");
-            window.location.href = "login.html";
+    logoutBtn.addEventListener("click", async () => {
+        // API'ye çerezi silmesini söyle
+        await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include"
         });
-    }
+        
+        // Frontend'i temizle
+        localStorage.removeItem("kullanici");
+        window.location.href = "login.html";
+    });
+}
 
     kullaniciBilgileriniGetir();
     sohbetleriGetir();
@@ -180,7 +165,10 @@ onizleme = htmlGuvenliYap(onizleme);
             
             
             const response = await fetch("/api/kullanicilar/grup-icin-liste", {
-                headers: { "Authorization": `Bearer ${token}` }
+                credentials: "include", 
+headers: { 
+    "Content-Type": "application/json" 
+}
             });
             
             if (response.ok) {
@@ -246,10 +234,10 @@ onizleme = htmlGuvenliYap(onizleme);
             try {
                 const response = await fetch("/api/sohbetler/grup-olustur", {
                     method: "POST",
+                    credentials: "include", 
                     headers: { 
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    },
+                            "Content-Type": "application/json" 
+                            },
                     body: JSON.stringify({
                         GrupAdi: grupAdi,
                         KatilimciIdleri: seciliIdler
@@ -278,20 +266,18 @@ onizleme = htmlGuvenliYap(onizleme);
     const messagesContainer = document.getElementById("messages-container");
     let aktifSohbetId = null; 
     let benimKullaniciIdm = null; 
+    let suAnkiSayfa = 1;               
+    let dahaFazlaMesajVarMi = true;    
+    let mesajlarYukleniyor = false;    //Arka arkaya iki istek atmayı önler
 
-    // Kim giden, kim gelen mesajlarını ayırt edebilmek için kendi kullanıcı ID'mizi alıyoruz
-    function kendiIdmiAl() {
-        if (!token) return null;
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const tokenData = JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-        return parseInt(tokenData.sub || tokenData.nameid || tokenData["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]);
-    }
+   function kendiIdmiAl() {
+    return parseInt(aktifKullanici.id);
+                        }
     benimKullaniciIdm = kendiIdmiAl();
+    
 
     //Sol Menüden Bir Sohbete Tıklanması Dinleme
     
-    //Sol Menüden Bir Sohbete Tıklanması Dinleme
     chatList.addEventListener("click", async (e) => {
         const chatItem = e.target.closest(".chat-item");
         if (!chatItem) return;
@@ -312,12 +298,17 @@ onizleme = htmlGuvenliYap(onizleme);
         const badge = chatItem.querySelector(".unread-badge");
         if (badge) badge.remove();
 
-        await window.sohbetiAc(id, sohbetAdi); // DİKKAT: Bağımsız fonksiyona devrettik
+        await window.sohbetiAc(id, sohbetAdi); 
     });
 
-    // YENİ EKLENEN: Her Yerden Çağrılabilir Sohbet Açma Fonksiyonu
+    //  Sohbet Açma Fonksiyonu
     window.sohbetiAc = async function(id, sohbetAdi = "Sohbet") {
         aktifSohbetId = id;
+        
+        //Yeni sohbette hafıza sıfırlanır
+        suAnkiSayfa = 1;
+        dahaFazlaMesajVarMi = true;
+        mesajlarYukleniyor = false; 
         
         const titleEl = document.getElementById("chat-header-title");
         const membersEl = document.getElementById("chat-header-members");
@@ -330,17 +321,24 @@ onizleme = htmlGuvenliYap(onizleme);
 
         fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
             method: "POST",
-            headers: { "Authorization": "Bearer " + token }
+            credentials: "include", 
+            headers: { 
+                "Content-Type": "application/json" 
+            }
         }).catch(err => console.error("Okundu işaretlenirken hata:", err));
         
-        await mesajlariGetir(aktifSohbetId);
+        // İlk yükleme (yukariKaydirmaMi = false) olarak çağırıyoruz
+        await mesajlariGetir(aktifSohbetId, false);
     };
 
     
     async function gruptakiKisileriGetir(sohbetId) {
         try {
             const response = await fetch(`/api/sohbetler/${sohbetId}/katilimcilar`, {
-                headers: { "Authorization": `Bearer ${token}` }
+                credentials: "include", 
+headers: { 
+    "Content-Type": "application/json" 
+}
             });
 
             if (response.ok) {
@@ -365,73 +363,129 @@ onizleme = htmlGuvenliYap(onizleme);
         }
     }
 
-    async function mesajlariGetir(sohbetId) {
-        messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Mesajlar yükleniyor...</p>";
+    async function mesajlariGetir(sohbetId, yukariKaydirmaMi = false) {
+        // Eğer zaten yükleniyorsa veya geçmiş bittiyse işlemi durdur
+        if (yukariKaydirmaMi && (mesajlarYukleniyor || !dahaFazlaMesajVarMi)) return;
+
+            mesajlarYukleniyor = true;
+
+        if (!yukariKaydirmaMi) {
+            // Sohbete sol menüden ilk defa tıklandıysa sayfayı sıfırla
+            messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'><i class='fas fa-spinner fa-spin'></i> Yükleniyor...</p>";
+            suAnkiSayfa = 1;
+            dahaFazlaMesajVarMi = true;
+        } else {
+            // Kullanıcı yukarı kaydırdıysa (geçmişi istiyorsa) geçici bir 'Yükleniyor' yazısı koy
+            const loader = document.createElement("div");
+            loader.id = "eski-mesaj-loader";
+            loader.innerHTML = "<p style='text-align:center; color:#888; font-size:12px; margin:5px;'>Eski mesajlar yükleniyor...</p>";
+            messagesContainer.prepend(loader);
+        }
         
         try {
-            const response = await fetch(`/api/mesajlar/sohbet/${sohbetId}`, {
-                headers: { "Authorization": `Bearer ${token}` }
+            const limit = 20; // Her seferinde 20 mesaj çekeceğiz
+            console.log(`🔄 [SAYFALAMA] Sohbet ID: ${sohbetId} | İstek Atılan Sayfa: ${suAnkiSayfa} | Beklenen Mesaj: ${limit}`);
+            const response = await fetch(`/api/mesajlar/sohbet/${sohbetId}?sayfa=${suAnkiSayfa}&limit=${limit}`, {
+                credentials: "include", 
+                headers: { "Content-Type": "application/json" }
             });
 
             if (response.ok) {
-                const mesajlar = await response.json();
+            const mesajlar = await response.json();
+            console.log(`✅ [BAŞARILI] Veritabanından ${mesajlar.length} adet mesaj çekildi. (Sayfa: ${suAnkiSayfa})`);
+            
+            if (!yukariKaydirmaMi) {
                 messagesContainer.innerHTML = ""; 
-
-                if (mesajlar.length === 0) {
-                    messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Burada henüz hiç mesaj yok. İlk mesajı sen gönder!</p>";
-                    return;
-                }
-
-                mesajlar.forEach(m => {
-                    // Tip dönüşümü ile güvenlik 
-                    const gonderenId = m.gonderenid || m.Gonderenid || m.kullaniciid;
-                    const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
-                    
-                    const metin = m.icerik || m.Icerik || m.mesaj || m.MesajMetni;
-                    
-                    // Invalid Date çözümü için doğru C# model özelliği
-                   // ESKİ VE SORUNLU KISIM (formatliTarih ve "Z" olan satırları tamamen siliyoruz)
-const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
-let saatString = "";
-if (hamTarih) {
-    const tarihObje = new Date(hamTarih);
-    saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-}
-
-                   
-                    const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
-
-                    const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
-                    ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id);
-                });
             } else {
-                messagesContainer.innerHTML = "<p style='text-align:center; color:red; margin-top:20px;'>Mesajlar alınamadı.</p>";
+                document.getElementById("eski-mesaj-loader")?.remove();
             }
-        } catch (error) {
-            messagesContainer.innerHTML = "<p style='text-align:center; color:red; margin-top:20px;'>Bağlantı hatası.</p>";
+
+            if (mesajlar.length === 0 && !yukariKaydirmaMi) {
+                messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Burada henüz hiç mesaj yok. İlk mesajı sen gönder!</p>";
+                mesajlarYukleniyor = false;
+                return;
+            }
+
+            // 1. DÜZELTME: Eski koddaki "Sohbetin Başı" HTML oluşturma kısmını buradan SİLDİK! 
+            // Sadece geçmişin bittiğini değişkene söylüyoruz.
+            if (mesajlar.length < limit) {
+                dahaFazlaMesajVarMi = false;
+            }
+
+            const eskiScrollYuksekligi = messagesContainer.scrollHeight;
+
+            if (yukariKaydirmaMi) {
+                mesajlar.reverse();
+            }
+
+            mesajlar.forEach(m => {
+                const gonderenId = m.gonderenid || m.Gonderenid || m.kullaniciid;
+                const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
+                const metin = m.icerik || m.Icerik || m.mesaj || m.MesajMetni;
+                
+                const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
+                let saatString = "";
+                if (hamTarih) {
+                    const tarihObje = new Date(hamTarih);
+                    saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                }
+                
+                const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
+                const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
+                
+                ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id, yukariKaydirmaMi);
+            });
+
+            
+            if (!dahaFazlaMesajVarMi && !document.getElementById("sohbet-basi-etiketi")) {
+                const sohbetBasi = document.createElement("p");
+                sohbetBasi.id = "sohbet-basi-etiketi"; // Çift eklemeyi önlemek için ID verdik
+                sohbetBasi.style = "text-align:center; color:#ccc; font-size:11px; margin: 15px 0;";
+                sohbetBasi.textContent = "--- Sohbetin Başı ---";
+                
+                
+                messagesContainer.prepend(sohbetBasi); 
+            }
+
+            // Scroll Bar Ayarlaması
+            if (yukariKaydirmaMi) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight - eskiScrollYuksekligi;
+            } else {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            suAnkiSayfa++; 
         }
+        } catch (error) {
+            console.error("Mesajlar çekilirken hata:", error);
+        }
+        mesajlarYukleniyor = false; // Kilidi aç
     }
 
+    // SCROLL OLAYINI DİNLEYEN TETİKLEYİCİ (YENİ)
+    messagesContainer.addEventListener("scroll", () => {
+        // Eğer kullanıcı mesajlarda en yukarı (0 noktasına) ulaştıysa geçmiş mesajları yükle
+        if (messagesContainer.scrollTop === 0 && dahaFazlaMesajVarMi && !mesajlarYukleniyor && aktifSohbetId) {
+            mesajlariGetir(aktifSohbetId, true); 
+        }
+    });
+
     
-    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null,mesajId = null) {
+    function ekranaMesajEkle(text, isSent, timeString, gonderenKisi = "", dosyaYolu = null, mesajId = null, usteEkle = false) {
         if (!text || text.trim() === "") return;
         const guvenliMetin = htmlGuvenliYap(text);
 
         const messageDiv = document.createElement("div");
         messageDiv.classList.add("message");
         messageDiv.classList.add(isSent ? "sent" : "received");
+        if(mesajId) messageDiv.dataset.mesajid = mesajId; // Arama kısmı için ID'yi de gömüyoruz
 
         let isimHtml = (!isSent && gonderenKisi) ? `<span style="font-size:11px; font-weight:bold; color:#008069; display:block; margin-bottom:3px;">${gonderenKisi}</span>` : "";
-
-      
         let sesIkonu = `<i class="fas fa-volume-up btn-seslendir" style="cursor:pointer; color:#888; font-size:13px; margin-left:10px;" title="Bu mesajı seslendir"></i>`;
-
         
         let dosyaHtml = "";
         if (dosyaYolu) {
-          
             const dosyaAdi = dosyaYolu.split('/').pop() || "Ekli Dosya";
-            
             dosyaHtml = `
                 <div style="margin-top: 8px; padding: 8px; background-color: rgba(0,0,0,0.05); border-radius: 6px; display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-file-download" style="color: #008069; font-size: 20px;"></i>
@@ -441,7 +495,6 @@ if (hamTarih) {
                 </div>
             `;
         }
-        
 
         messageDiv.innerHTML = `
             ${isimHtml}
@@ -450,19 +503,25 @@ if (hamTarih) {
                     <p style="margin: 0; flex: 1;">${guvenliMetin}</p>
                     ${sesIkonu}
                 </div>
-                ${dosyaHtml} <!-- DOSYA KUTUSUNU BURAYA BASTIK -->
+                ${dosyaHtml}
             </div>
             <span class="msg-time">${timeString}</span>
         `;
 
-        // Tıklama Olayı: Kullanıcı hoparlöre basarsa metni seslendir
         const btnSes = messageDiv.querySelector('.btn-seslendir');
-        btnSes.addEventListener('click', () => {
-            metniSeslendir(text); 
-        });
+        btnSes.addEventListener('click', () => { metniSeslendir(text); });
 
-        messagesContainer.appendChild(messageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight; // En alta kaydır
+        // SİHİR BURADA: Uste mi (eski mesaj), Alta mı (yeni mesaj) eklenmeli?
+        if (usteEkle) {
+            messagesContainer.prepend(messageDiv);
+        } else {
+            messagesContainer.appendChild(messageDiv);
+        }
+
+        // Sadece normal (ilk) yüklemelerde ve canlı mesaj geldiğinde en alta kaydırır
+        if (!usteEkle) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
     }
 
  
@@ -496,21 +555,24 @@ if (hamTarih) {
                 // DosyalarController'a dosyayı fırlatıyoruz
                 const uploadRes = await fetch("/api/dosyalar/yukle", {
                     method: "POST",
-                    headers: { "Authorization": `Bearer ${token}` },
+                    credentials: "include", 
                     body: formData // DİKKAT: JSON değil FormData gönderiyoruz
                 });
                 
                 if (uploadRes.ok) {
                     const sonuc = await uploadRes.json();
-                    yuklenenDosyaYolu = sonuc.dosyaYolu; // Sunucudan gelen "/uploads/xyz.jpg" linkini aldık!
+                    yuklenenDosyaYolu = sonuc.dosyaYolu; 
                     
-                    // Yükleme bitince önizleme kutusunu temizleyip kapatıyoruz
                     seciliDosya = null;
                     const dosyaOnizlemeKutusu = document.getElementById("dosya-onizleme-kutusu");
                     if (dosyaOnizlemeKutusu) dosyaOnizlemeKutusu.style.display = "none";
                 } else {
-                    alert("Dosya sunucuya yüklenirken bir hata oluştu.");
-                    return; // Dosya yüklenemezse mesajı da yollama, işlemi durdur
+                    // SİHİRLİ DOKUNUŞ: C#'ın BadRequest içine yazdığı o özel mesajı yakalıyoruz!
+                    const gercekHataMesaji = await uploadRes.text();
+                    alert("Uyarı: " + gercekHataMesaji);
+                    
+                    // İşlemi durdur ve dosya seçili kalsın (belki başka dosya seçer)
+                    return; 
                 }
             } catch (error) {
                 console.error("Dosya yükleme hatası:", error);
@@ -525,10 +587,10 @@ if (hamTarih) {
             const apiAdresi = "/api/mesajlar"; 
             const response = await fetch(apiAdresi, {
                 method: "POST",
-                headers: { 
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
+                credentials: "include", 
+                    headers: { 
+                        "Content-Type": "application/json" 
+                            },
                 body: JSON.stringify({
                     sohbetid: parseInt(aktifSohbetId),
                     icerik: metin || "📁 Dosya gönderildi", // Metin boşsa ekranda bu yazsın
@@ -575,13 +637,11 @@ if (solSohbetKutusu) {
     // =========================================================
     // --- SIGNALR GERÇEK ZAMANLI BAĞLANTI ---
     // =========================================================
-    
-    const connection = new signalR.HubConnectionBuilder()
-        .withUrl("/chathub", { 
-            accessTokenFactory: () => token 
-        })
-        .withAutomaticReconnect()
-        .build();
+ 
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("/chathub") 
+    .withAutomaticReconnect()
+    .build();
         
 
     connection.on("YeniMesajGeldi", (mesaj) => {
@@ -611,7 +671,10 @@ if (solSohbetKutusu) {
         // Mesajı anında gördüğü için arka planda saati hemen güncelleyelim ki rozet oluşmasın
         fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
             method: "POST",
-            headers: { "Authorization": "Bearer " + token }
+            credentials: "include", 
+headers: { 
+    "Content-Type": "application/json" 
+}
         }).catch(err => console.error(err));
 
         // Sesli okuma açıksa oku
@@ -775,10 +838,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             //Güvenli C# sunucuya istek atılır.
             const response = await fetch("/api/tts/seslendir", {
                 method: "POST",
+                credentials: "include", 
                 headers: { 
-                    "Authorization": `Bearer ${token}`, // JWT Token ekleme
-                    "Content-Type": "application/json" 
-                },
+                            "Content-Type": "application/json" 
+                        },
                 body: JSON.stringify({
                     text: metin,
                     languageCode: ayarlar.dil,
@@ -937,7 +1000,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             try {
                 
                 const response = await fetch("/api/kullanicilar", { 
-                    headers: { "Authorization": `Bearer ${token}` }
+                    credentials: "include", 
+headers: { 
+    "Content-Type": "application/json" 
+}
                 });
 
                 if (response.ok) {
@@ -1028,7 +1094,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             // C# API'sine hedef kişinin ID'sini gönderiyoruz (Varsa getir, yoksa oluştur)
             const response = await fetch(`/api/sohbetler/birebir/${hedefKullaniciId}`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${token}` }
+               credentials: "include", 
+headers: { 
+    "Content-Type": "application/json" 
+}
             });
 
             if (response.ok) {
@@ -1076,7 +1145,10 @@ connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
             aramaZamanlayici = setTimeout(async () => {
                 try {
                     const response = await fetch(`/api/sohbetler/ara?kelime=${kelime}`, {
-                        headers: { "Authorization": `Bearer ${token}` }
+                        credentials: "include", 
+headers: { 
+    "Content-Type": "application/json" 
+}
                     });
 
                     if (response.ok) {

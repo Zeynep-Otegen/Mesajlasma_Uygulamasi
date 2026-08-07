@@ -1,4 +1,5 @@
 $kind: http-request
 url: ""
 method: GET
+examples: .resources/MesajEkle.resources/examples
 order: 4503597687487021

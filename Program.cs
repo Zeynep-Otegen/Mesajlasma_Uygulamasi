@@ -64,6 +64,10 @@ builder.Services.AddAuthentication(options =>
             {
                 Console.WriteLine("\n🕵️ KAPIYA GELEN TAM METİN: [" + gelenBaslik + "]\n");
             }
+            if (context.Request.Cookies.ContainsKey("X-Access-Token"))
+            {
+                context.Token = context.Request.Cookies["X-Access-Token"];
+            }
 
             // Aşağısı önceden var olan kısımlar (Sohbet ağı için)
             var accessToken = context.Request.Query["access_token"];
@@ -88,7 +92,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 });
 
 
-builder.Services.AddScoped<IKullaniciService, KullaniciService>();
+builder.Services.AddScoped<IUserService, UserService>();
 // Sisteme Jenerik Kilerimizi tanıtıyoruz:
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
@@ -96,9 +100,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 
-builder.Services.AddScoped<IMesajService, MesajService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 
-builder.Services.AddScoped<ISohbetService, SohbetService>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 builder.Services.AddSingleton<IRedisService, RedisService>();
 

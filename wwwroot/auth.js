@@ -29,8 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Sadece token'ı alıyoruz
                     const gercekToken = data.token || data.Token; 
                     
-                    // Sadece tertemiz token'ı kaydediyoruz
-                    localStorage.setItem("token", gercekToken);
+                    
+                    localStorage.setItem("kullanici", JSON.stringify(data.kullanici));
                     
                     // Giriş başarılı, ana sayfaya yönlendir
                     window.location.href = "index.html";

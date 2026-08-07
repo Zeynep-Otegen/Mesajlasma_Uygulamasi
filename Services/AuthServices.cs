@@ -8,30 +8,30 @@ namespace STAJ1.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly IGenericRepository<Kullanici> _repository;
-    private readonly UygulamaDbContext _context; // Rolleri Join ile çekmek için ekledik
+    private readonly IGenericRepository<User> _repository;
+    private readonly UygulamaDbContext _context; // Rolleri Join ile çekmek için eklendi
 
-    public AuthService(IGenericRepository<Kullanici> repository, UygulamaDbContext context)
+    public AuthService(IGenericRepository<User> repository, UygulamaDbContext context)
     {
         _repository = repository;
         _context = context;
     }
 
-    public void Register(Kullanici yeniKullanici)
+    public void Register(User yeniKullanici)
     {
-        var mevcutKullanici = _repository.SartaGoreGetir(k => k.Eposta == yeniKullanici.Eposta);
+        var mevcutKullanici = _repository.Get(k => k.Eposta == yeniKullanici.Eposta);
         if (mevcutKullanici != null)
         {
             throw new Exception("Bu e-posta adresi zaten kayıtlı!");
         }
 
         yeniKullanici.SifreHash = PasswordHasher.HashPassword(yeniKullanici.SifreHash);
-        _repository.Ekle(yeniKullanici);
+        _repository.Add(yeniKullanici);
     }
 
-    public (Kullanici kullanici, List<string> roller) Login(LoginRequest request)
+    public (User kullanici, List<string> roller) Login(LoginRequest request)
     {
-        var kullanici = _repository.SartaGoreGetir(k => k.Eposta == request.Eposta);
+        var kullanici = _repository.Get(k => k.Eposta == request.Eposta);
         if (kullanici == null)
         {
             throw new Exception("E-posta veya şifre hatalı!");

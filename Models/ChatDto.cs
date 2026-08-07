@@ -1,6 +1,6 @@
 namespace STAJ1.Models;
 
-public class SohbetDto
+public class ChatDto
 {
     public int SohbetId { get; set; }
     public bool GrupMu { get; set; }

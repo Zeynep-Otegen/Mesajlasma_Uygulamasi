@@ -1,0 +1,25 @@
+$kind: http-example
+request:
+  url: http://localhost:5000/api/mesajlar
+  method: POST
+  body:
+    type: json
+    content: "{\r
+
+      \  \"sohbetid\": \"YAZI_GONDERIYORUM_SAYI_YERINE\",\r
+
+      \  \"icerik\": null\r
+
+      }"
+response:
+  statusCode: 401
+  statusText: Unauthorized
+  headers:
+    content-length: "0"
+    date: Wed, 05 Aug 2026 11:29:32 GMT
+    server: Kestrel
+    www-authenticate: Bearer
+  body:
+    type: text
+    content: ""
+order: 1785929672819

@@ -5,31 +5,31 @@ using STAJ1.Repositories;
 
 namespace STAJ1.Services;
 
-public class MesajService : IMesajService
+public class MessageService : IMessageService
 {
-    private readonly IGenericRepository<Mesaj> _mesajRepository;
+    private readonly IGenericRepository<Message> _mesajRepository;
 
-    public MesajService(IGenericRepository<Mesaj> mesajRepository)
+    public MessageService(IGenericRepository<Message> mesajRepository)
     {
         _mesajRepository = mesajRepository;
     }
 
-    public IEnumerable<Mesaj> SohbeteAitMesajlariGetir(int sohbetId)
+    public IEnumerable<Message> GetMessageByChatId(int sohbetId)
     {
         // Mesajları Repository üzerinden filtreleyerek çekiyoruz
         
-        return _mesajRepository.HepsiniGetir()
+        return _mesajRepository.GetAll()
                                .Where(m => m.sohbetid == sohbetId)
                                .ToList();
     }
 
-    public void MesajGonder(Mesaj yeniMesaj)
+    public void SendMessage(Message yeniMesaj)
     {
         // İleride buraya "Bu kullanıcı bu sohbette var mı?" gibi iş kuralları eklenecek
-        _mesajRepository.Ekle(yeniMesaj);
+        _mesajRepository.Add(yeniMesaj);
     }
-    public bool KullaniciSohbetteMi(int sohbetId, int kullaniciId)
+    public bool IsUserInChat(int sohbetId, int kullaniciId)
 {
-    return _mesajRepository.HepsiniGetir().Any(m => m.sohbetid == sohbetId && m.gonderenid == kullaniciId);
+    return _mesajRepository.GetAll().Any(m => m.sohbetid == sohbetId && m.gonderenid == kullaniciId);
 }
 }

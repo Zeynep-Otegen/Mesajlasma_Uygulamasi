@@ -4,9 +4,9 @@ namespace STAJ1.Services
 {
     public interface IRedisService
     {
-        void KullaniciCevrimiciYap(int kullaniciId);
-        void KullaniciCevrimdisiYap(int kullaniciId);
-        List<int> CevrimiciKullanicilariGetir();
-        bool KullaniciCevrimiciMi(int kullaniciId);
+        void SetUserOnline(int kullaniciId);
+        void SetUserOffline(int kullaniciId);
+        List<int> GetOnlineUsers();
+        bool IsUserOnline(int kullaniciId);
     }
 }

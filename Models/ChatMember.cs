@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace STAJ1.Models;
 
 [Table("sohbetkatilimcilari")]
-public class SohbetKatilimci
+public class ChatMember
 {
     [Column("id")]
     public int id { get; set; }

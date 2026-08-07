@@ -5,42 +5,42 @@ using STAJ1.Repositories;
 
 namespace STAJ1.Services;
 
-public class KullaniciService : IKullaniciService
+public class UserService : IUserService
 {
-    // Artık IKullaniciRepository yerine IGenericRepository<Kullanici> kullanıyoruz
-    private readonly IGenericRepository<Kullanici> _repository;
+    
+    private readonly IGenericRepository<User> _repository;
 
-    public KullaniciService(IGenericRepository<Kullanici> repository)
+    public UserService(IGenericRepository<User> repository)
     {
         _repository = repository;
     }
 
-    public List<Kullanici> TumKullanicilariGetir()
+    public List<User> GetAllUsers()
     {
-        return _repository.HepsiniGetir();
+        return _repository.GetAll();
     }
 
-    public Kullanici? IdyeGoreGetir(int id)
+    public User? GetById(int id)
     {
-        return _repository.IdyeGoreGetir(id);
+        return _repository.GetById(id);
     }
 
-    public void KullaniciEkle(Kullanici kullanici)
+    public void AddUser(User kullanici)
     {
         // YENİ SİSTEM: E-posta kontrolünü yeni yazdığımız Şartlı Arama metoduyla yapıyoruz
-        var mevcutKullanici = _repository.SartaGoreGetir(k => k.Eposta == kullanici.Eposta);
+        var mevcutKullanici = _repository.Get(k => k.Eposta == kullanici.Eposta);
         
         if (mevcutKullanici != null)
         {
             throw new Exception("Bu e-posta adresi zaten kullanılıyor!");
         }
 
-        _repository.Ekle(kullanici);
+        _repository.Add(kullanici);
     }
 
-    public void KullaniciGuncelle(int id, Kullanici guncelKullanici)
+    public void UpdateUser(int id, User guncelKullanici)
     {
-        var mevcutKullanici = _repository.IdyeGoreGetir(id);
+        var mevcutKullanici = _repository.GetById(id);
         if (mevcutKullanici == null)
         {
             throw new Exception("Güncellenmek istenen kullanıcı bulunamadı!");
@@ -50,22 +50,22 @@ public class KullaniciService : IKullaniciService
         mevcutKullanici.Eposta = guncelKullanici.Eposta;
         mevcutKullanici.SifreHash = guncelKullanici.SifreHash;
 
-        _repository.Guncelle(mevcutKullanici);
+        _repository.Update(mevcutKullanici);
     }
 
-    public void KullaniciSil(int id)
+    public void DeleteUser(int id)
     {
-        var mevcutKullanici = _repository.IdyeGoreGetir(id);
+        var mevcutKullanici = _repository.GetById(id);
         if (mevcutKullanici == null)
         {
             throw new Exception("Silinmek istenen kullanıcı bulunamadı!");
         }
 
-        _repository.Sil(id);
+        _repository.Delete(id);
     }
-    public void DurumGuncelle(int kullaniciId, bool cevrimiciMi)
+    public void UpdateStatus(int kullaniciId, bool cevrimiciMi)
 {
-    var kullanici = _repository.IdyeGoreGetir(kullaniciId); 
+    var kullanici = _repository.GetById(kullaniciId); 
     if (kullanici != null)
     {
         kullanici.CevrimiciMi = cevrimiciMi;
@@ -76,7 +76,7 @@ public class KullaniciService : IKullaniciService
             kullanici.SonGorulme = DateTime.UtcNow; 
         }
         
-        _repository.Guncelle(kullanici); 
+        _repository.Update(kullanici); 
     }
 }
 }

@@ -18,7 +18,7 @@ public class TokenService : ITokenService
         _config = config;
     }
 
-   public string GenerateToken(Kullanici kullanici, List<string> roller)
+   public string GenerateToken(User kullanici, List<string> roller)
     {
         var jwtSettings = _config.GetSection("JwtSettings");
         var secretKey = jwtSettings["SecretKey"];

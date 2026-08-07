@@ -3,6 +3,7 @@ bin/
 obj/
 .vscode/
 wwwroot/uploads/
+PrivateUploads/
 
 
 # Kullanıcıya Özel Ayarlar

@@ -9,36 +9,36 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     private readonly UygulamaDbContext _context;
     private readonly DbSet<T> _dbSet;
 
-    // YENİ EKLENEN: Dependency Injection (Bağımlılık Enjeksiyonu) Kapısı
+    // Dependency Injection (Bağımlılık Enjeksiyonu) Kapısı
     // Program.cs, UygulamaDbContext'i hazırlayıp buraya otomatik gönderecek.
     public GenericRepository(UygulamaDbContext context)
     {
         _context = context;
         _dbSet = _context.Set<T>();
     }
-    public List<T> HepsiniGetir()
+    public List<T> GetAll()
     {
         return _dbSet.ToList(); // T neyse (örneğin Rol), o tabloyu listeler
     }
 
-    public T? IdyeGoreGetir(int id)
+    public T? GetById(int id)
     {
         return _dbSet.Find(id);
     }
 
-    public void Ekle(T entity)
+    public void Add(T entity)
     {
         _dbSet.Add(entity);
         _context.SaveChanges();
     }
 
-    public void Guncelle(T entity)
+    public void Update(T entity)
     {
         _dbSet.Update(entity);
         _context.SaveChanges();
     }
 
-    public void Sil(int id)
+    public void Delete(int id)
     {
         var entity = _dbSet.Find(id);
         if (entity != null)
@@ -47,7 +47,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
             _context.SaveChanges();
         }
     }
-    public T? SartaGoreGetir(Expression<Func<T, bool>> filtre)
+    public T? Get(Expression<Func<T, bool>> filtre)
     {
         return _dbSet.FirstOrDefault(filtre);
     }

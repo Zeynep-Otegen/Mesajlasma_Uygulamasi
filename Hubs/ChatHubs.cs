@@ -11,12 +11,12 @@ namespace STAJ1.Hubs;
 [Authorize] 
 public class ChatHub : Hub
 {
-    private readonly IMesajService _mesajService;
-    private readonly IKullaniciService _kullaniciService; 
+    private readonly IMessageService _mesajService;
+    private readonly IUserService _kullaniciService; 
     private readonly IRedisService _redisService; 
 
     // Constructor güncellendi
-    public ChatHub(IMesajService mesajService, IKullaniciService kullaniciService, IRedisService redisService)
+    public ChatHub(IMessageService mesajService, IUserService kullaniciService, IRedisService redisService)
     {
         _mesajService = mesajService;
         _kullaniciService = kullaniciService;
@@ -36,10 +36,10 @@ public class ChatHub : Hub
             if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
             {
                 // 1. YEDEKLEME: Eski DB kodunu her ihtimale karşı çalıştır
-                _kullaniciService.DurumGuncelle(userId, true);
+                _kullaniciService.UpdateStatus(userId, true);
                 
                 // 2. REDİS: RAM'e yazmayı dene
-                _redisService.KullaniciCevrimiciYap(userId);
+                _redisService.SetUserOnline(userId);
                 
                 // 3. BİLDİRİM: Diğer kullanıcılara haber ver
                 await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, true);
@@ -67,10 +67,10 @@ public class ChatHub : Hub
             if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
             {
                 // 1. YEDEKLEME: Eski DB kodunu her ihtimale karşı çalıştır
-                _kullaniciService.DurumGuncelle(userId, false);
+                _kullaniciService.UpdateStatus(userId, false);
                 
                 // 2. REDİS: RAM'den silmeyi dene
-                _redisService.KullaniciCevrimdisiYap(userId);
+                _redisService.SetUserOffline(userId);
                 
                 // 3. BİLDİRİM: Diğer kullanıcılara haber ver
                 await Clients.Others.SendAsync("KullaniciDurumDegisti", userId, false);
@@ -85,7 +85,7 @@ public class ChatHub : Hub
         await base.OnDisconnectedAsync(exception);
     }
 
-    public async Task OdayaKatil(int sohbetId)
+    public async Task JoinChat(int sohbetId)
 {
     // İstek atan kişi ID al
     var userIdString = Context.UserIdentifier; 
@@ -99,7 +99,7 @@ public class ChatHub : Hub
 
     //sohbette var mı?
     
-    bool yetkisiVarMi = _mesajService.KullaniciSohbetteMi(sohbetId, aktifKullaniciId);
+    bool yetkisiVarMi = _mesajService.IsUserInChat(sohbetId, aktifKullaniciId);
 
     if (!yetkisiVarMi)
     {
@@ -111,16 +111,16 @@ public class ChatHub : Hub
     await Groups.AddToGroupAsync(Context.ConnectionId, sohbetId.ToString());
 }
     
-    public async Task MesajGonder(int sohbetId, int gonderenId, string gonderenAd, string mesajIcerigi)
+    public async Task SendMessage(int sohbetId, int gonderenId, string gonderenAd, string mesajIcerigi)
     {
-        var yeniMesaj = new Mesaj
+        var yeniMesaj = new Message
         {
             sohbetid = sohbetId,
             gonderenid = gonderenId,
             icerik = mesajIcerigi
         };
 
-        _mesajService.MesajGonder(yeniMesaj);
+        _mesajService.SendMessage(yeniMesaj);
 
         string odaAdi = sohbetId.ToString();
         await Clients.Group(odaAdi).SendAsync("YeniMesajAlindi", gonderenAd, mesajIcerigi);

@@ -4,5 +4,5 @@ namespace STAJ1.Services;
 
 public interface ITokenService
 {
-   string GenerateToken(Kullanici kullanici, List<string> roller);
+   string GenerateToken(User kullanici, List<string> roller);
 }

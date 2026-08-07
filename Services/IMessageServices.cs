@@ -3,12 +3,11 @@ using STAJ1.Models;
 
 namespace STAJ1.Services;
 
-public interface IMesajService
+public interface IMessageService
 {
-    // Belirli bir sohbete ait tüm mesajları getirecek metot
-    IEnumerable<Mesaj> SohbeteAitMesajlariGetir(int sohbetId);
+   
+    IEnumerable<Message> GetMessageByChatId(int sohbetId);
     
-    // Yeni mesaj gönderme işlemi için metot
-    void MesajGonder(Mesaj yeniMesaj);
-    bool KullaniciSohbetteMi(int sohbetId, int kullaniciId);
+    void SendMessage(Message yeniMesaj);
+    bool IsUserInChat(int sohbetId, int kullaniciId);
 }

@@ -4,9 +4,9 @@ namespace STAJ1.Services;
 
 public interface IAuthService
 {
-    void Register(Kullanici yeniKullanici);
+    void Register(User yeniKullanici);
     
     // Login başarılı olursa geriye Kullanici nesnesini dönsün. 
     // Çünkü JWT (Token) üretirken kullanıcının ID'sine ve E-postasına ihtiyacımız olacak.
-   (Kullanici kullanici, List<string> roller) Login(LoginRequest request);
+   (User kullanici, List<string> roller) Login(LoginRequest request);
 }

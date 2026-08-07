@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace STAJ1.Models;
 
 [Table("kullanicirol")]
-public class Kullanicirol
+public class UserRole
 {
     [Column("id")]
     public int Id { get; set; }
@@ -15,6 +15,6 @@ public class Kullanicirol
     public int RolId { get; set; }
 
     // Entity Framework'ün ilişkileri anlaması için Navigasyon Özellikleri
-    public Kullanici? Kullanici { get; set; }
-    public Rol? Rol { get; set; }
+    public User? Kullanici { get; set; }
+    public Role? Rol { get; set; }
 }

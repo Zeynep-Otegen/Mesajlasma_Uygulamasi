@@ -3,14 +3,14 @@ using STAJ1.Models;
 
 namespace STAJ1.Services;
 
-public interface ISohbetService
+public interface IChatService
 {
     // Yeni bir sohbet oluşturur ve oluşturulan sohbeti döndürür
-    Sohbet SohbetOlustur(Sohbet yeniSohbet);
+    Chat CreateChat(Chat yeniSohbet);
     
     // Sohbete kullanıcı ekler (sohbetkatilimcilar tablosu)
-    void KullaniciyiSohbeteEkle(int sohbetId, int kullaniciId);
+    void AddUserToChat(int sohbetId, int kullaniciId);
     
     // Bir kullanıcının dahil olduğu tüm sohbetleri listeler
-    IEnumerable<Sohbet> KullanicininSohbetleriniGetir(int kullaniciId);
+    IEnumerable<Chat> GetUsersChat(int kullaniciId);
 }
