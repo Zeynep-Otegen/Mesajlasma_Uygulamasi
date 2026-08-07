@@ -5,9 +5,9 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace SeninProjeAdin.Controllers 
+namespace STAJ1.Controllers 
 {
-    [Route("api/[controller]")]
+    [Route("api/dosyalar")]
     [ApiController]
     [Authorize] 
     public class FileController : ControllerBase
@@ -37,20 +37,22 @@ namespace SeninProjeAdin.Controllers
     {
         return BadRequest("Güvenlik ihlali: Bu dosya türünün yüklenmesine izin verilmiyor!");
     }
-
+     var yil = DateTime.Now.Year.ToString();
+     var ay = DateTime.Now.Month.ToString("D2");
+     var gun = DateTime.Now.Day.ToString("D2");
     
     var guvenliDosyaAdi = Guid.NewGuid().ToString() + dosyaUzantisi;
 
     // Dosyanın kaydedileceği klasör yolu 
-    var kayitYolu = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+    var anaKlasor = Path.Combine(Directory.GetCurrentDirectory(), "PrivateUploads", yil, ay, gun);
 
     // Eğer klasör yoksa oluştur
-    if (!Directory.Exists(kayitYolu))
+    if (!Directory.Exists(anaKlasor))
     {
-        Directory.CreateDirectory(kayitYolu);
+        Directory.CreateDirectory(anaKlasor);
     }
 
-    var tamYol = Path.Combine(kayitYolu, guvenliDosyaAdi);
+    var tamYol = Path.Combine(anaKlasor, guvenliDosyaAdi);
 
     // Dosyayı sunucuya kaydet
     using (var stream = new FileStream(tamYol, FileMode.Create))
@@ -59,9 +61,28 @@ namespace SeninProjeAdin.Controllers
     }
 
     // Frontend'in dosyaya ulaşabilmesi için erişim linkini dönüyoruz
-    var dosyaErisimLinki = $"/uploads/{guvenliDosyaAdi}";
+    var dosyaErisimLinki = $"/api/dosyalar/indir/{yil}/{ay}/{gun}/{guvenliDosyaAdi}";
     
     return Ok(new { dosyaYolu = dosyaErisimLinki });
         }
+        [HttpGet("indir/{yil}/{ay}/{gun}/{dosyaAdi}")]
+        public IActionResult DosyaIndir(string yil, string ay, string gun, string dosyaAdi)
+        {
+            var tamYol = Path.Combine(Directory.GetCurrentDirectory(), "PrivateUploads", yil, ay, gun, dosyaAdi);
+
+            if (!System.IO.File.Exists(tamYol))
+            {
+                return NotFound("Dosya bulunamadı veya silinmiş.");
+            }
+
+            var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+            if (!provider.TryGetContentType(tamYol, out var contentType))
+            {
+                contentType = "application/octet-stream"; 
+            }
+
+            return PhysicalFile(tamYol, contentType);
+        }
     }
+    
 }

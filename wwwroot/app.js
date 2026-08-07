@@ -436,16 +436,14 @@ headers: {
                 ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id, yukariKaydirmaMi);
             });
 
-            // =========================================================
-            // 2. DÜZELTME (SİHİRLİ KISIM): Yazıyı DÖNGÜDEN SONRA koyuyoruz!
-            // =========================================================
+            
             if (!dahaFazlaMesajVarMi && !document.getElementById("sohbet-basi-etiketi")) {
                 const sohbetBasi = document.createElement("p");
                 sohbetBasi.id = "sohbet-basi-etiketi"; // Çift eklemeyi önlemek için ID verdik
                 sohbetBasi.style = "text-align:center; color:#ccc; font-size:11px; margin: 15px 0;";
                 sohbetBasi.textContent = "--- Sohbetin Başı ---";
                 
-                // Bütün eski mesajlar eklendikten sonra en üste koyduğu için kesinlikle TEPEYE oturacak!
+                
                 messagesContainer.prepend(sohbetBasi); 
             }
 
@@ -464,7 +462,7 @@ headers: {
         mesajlarYukleniyor = false; // Kilidi aç
     }
 
-    // 2. KAYDIRMA (SCROLL) OLAYINI DİNLEYEN TETİKLEYİCİ (YENİ)
+    // SCROLL OLAYINI DİNLEYEN TETİKLEYİCİ (YENİ)
     messagesContainer.addEventListener("scroll", () => {
         // Eğer kullanıcı mesajlarda en yukarı (0 noktasına) ulaştıysa geçmiş mesajları yükle
         if (messagesContainer.scrollTop === 0 && dahaFazlaMesajVarMi && !mesajlarYukleniyor && aktifSohbetId) {
@@ -558,23 +556,23 @@ headers: {
                 const uploadRes = await fetch("/api/dosyalar/yukle", {
                     method: "POST",
                     credentials: "include", 
-headers: { 
-    "Content-Type": "application/json" 
-},
                     body: formData // DİKKAT: JSON değil FormData gönderiyoruz
                 });
                 
                 if (uploadRes.ok) {
                     const sonuc = await uploadRes.json();
-                    yuklenenDosyaYolu = sonuc.dosyaYolu; // Sunucudan gelen "/uploads/xyz.jpg" linkini aldık!
+                    yuklenenDosyaYolu = sonuc.dosyaYolu; 
                     
-                    // Yükleme bitince önizleme kutusunu temizleyip kapatıyoruz
                     seciliDosya = null;
                     const dosyaOnizlemeKutusu = document.getElementById("dosya-onizleme-kutusu");
                     if (dosyaOnizlemeKutusu) dosyaOnizlemeKutusu.style.display = "none";
                 } else {
-                    alert("Dosya sunucuya yüklenirken bir hata oluştu.");
-                    return; // Dosya yüklenemezse mesajı da yollama, işlemi durdur
+                    // SİHİRLİ DOKUNUŞ: C#'ın BadRequest içine yazdığı o özel mesajı yakalıyoruz!
+                    const gercekHataMesaji = await uploadRes.text();
+                    alert("Uyarı: " + gercekHataMesaji);
+                    
+                    // İşlemi durdur ve dosya seçili kalsın (belki başka dosya seçer)
+                    return; 
                 }
             } catch (error) {
                 console.error("Dosya yükleme hatası:", error);
