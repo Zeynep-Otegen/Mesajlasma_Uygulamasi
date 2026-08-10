@@ -8,7 +8,7 @@ public class UygulamaDbContext : DbContext
     }
     public DbSet<User> kullanicilar { get; set; }
     public DbSet<Role> roller { get; set; }
-    public DbSet<UserRole> kullaniciroller { get; set; }
+    public virtual DbSet<UserRole> kullaniciroller { get; set; }
     public DbSet<Chat> sohbetler { get; set; }
     public DbSet<ChatMember> sohbetkatilimcilar { get; set; }
     public DbSet<Message> mesajlar { get; set; }
