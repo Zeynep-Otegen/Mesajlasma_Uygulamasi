@@ -10,7 +10,7 @@ namespace STAJ1.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/[controller]")] 
+[Route("api/kullanicilar")] 
 public class UserController : ControllerBase
 {
     private readonly IUserService _kullaniciService;
