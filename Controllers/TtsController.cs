@@ -57,8 +57,8 @@ public class TtsController : ControllerBase
 // Frontend'den (JS) gelecek verileri tutacak paket (DTO)
 public class TtsRequest
 {
-    public string Text { get; set; }  //Null olamaz uyarısı var.
-    public string LanguageCode { get; set; }
-    public string VoiceName { get; set; }
-    public double SpeakingRate { get; set; }
+    public string Text { get; set; } = string.Empty; //Null olamaz uyarısı var.
+    public string LanguageCode { get; set; }= string.Empty;
+    public string VoiceName { get; set; } = string.Empty;
+    public double? SpeakingRate { get; set; }
 }
