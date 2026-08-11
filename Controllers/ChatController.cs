@@ -154,7 +154,7 @@ private SohbetOzetDto SohbetOzetiniHazirla(Chat s, int kullaniciId, List<ChatMem
         sonMesajGonderenId = sonMesaj?.gonderenid ?? 0 
     };
 }
-private string EkrandaGosterilecekAdiBul(Chat s, int kullaniciId, List<ChatMember> tumKatilimcilar, List<User> tumKullanicilar)
+private static string EkrandaGosterilecekAdiBul(Chat s, int kullaniciId, List<ChatMember> tumKatilimcilar, List<User> tumKullanicilar)
 {
     if (s.grupmu) return s.grupadi ?? "";
 
@@ -165,7 +165,7 @@ private string EkrandaGosterilecekAdiBul(Chat s, int kullaniciId, List<ChatMembe
     return digerKullanici?.AdSoyad ?? s.grupadi ?? "";
 }
 
-private (string onizlemeMetni, string gonderenAd) SonMesajDetaylariniGetir(Message? sonMesaj, bool grupmu, List<User> tumKullanicilar)
+private static(string onizlemeMetni, string gonderenAd) SonMesajDetaylariniGetir(Message? sonMesaj, bool grupmu, List<User> tumKullanicilar)
 {
     if (sonMesaj == null) return ("Henüz mesaj yok...", "");
 

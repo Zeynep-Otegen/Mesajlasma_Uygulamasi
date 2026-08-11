@@ -1,3 +1,4 @@
+namespace STAJ1.Models;
 public class SohbetOzetDto
 {
     public int id { get; set; }
