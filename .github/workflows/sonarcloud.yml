@@ -1,0 +1,44 @@
+name: SonarCloud Analizi
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: Build and analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu Klonla
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # SonarCloud'un tüm geçmişi taraması için gereklidir
+          
+      - name: JDK 17 Kurulumu (SonarScanner Java gerektirir)
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: 'zulu'
+          
+      - name: .NET 10.0 Kurulumu
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '10.0.x'
+          
+      - name: SonarScanner Kurulumu
+        run: dotnet tool install --global dotnet-sonarscanner
+        
+      - name: Build ve Analiz İşlemi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Bu token GitHub tarafından otomatik sağlanır
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Senin eklediğin token
+        run: |
+          # DİKKAT: /k ve /o parametrelerine SonarCloud'daki proje anahtarlarını yaz!
+          dotnet sonarscanner begin /k:"Zeynep-Otegen_Mesajlasma_Uygulamasi" /o:"codecreator" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
+          
+          # Projeni derle (Testlerini de buraya dahil edebilirsin)
+          dotnet build
+          
+          dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
