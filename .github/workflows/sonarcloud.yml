@@ -36,7 +36,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Senin eklediğin token
         run: |
           # DİKKAT: /k ve /o parametrelerine SonarCloud'daki proje anahtarlarını yaz!
-          dotnet sonarscanner begin /k:"SONAR_TOKEN" /o:"codecreator" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
+          dotnet sonarscanner begin /k:"Zeynep-Otegen_Mesajlasma_Uygulamasi" /o:"codecreator" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
           
           # Projeni derle (Testlerini de buraya dahil edebilirsin)
           dotnet build
