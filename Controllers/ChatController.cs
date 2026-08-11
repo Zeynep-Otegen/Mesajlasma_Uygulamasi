@@ -100,82 +100,85 @@ public class ChatController : ControllerBase
     // SOHBET LİSTESİNDE DİNAMİK İSİMLENDİRME
     // ========================================================================
     [HttpGet("kullanici/{kullaniciId}")]
-    public IActionResult UsersChat(int kullaniciId)
+public IActionResult UsersChat(int kullaniciId)
+{
+    try
     {
-        try
-        {
-            var sohbetler = _sohbetService.GetUsersChat(kullaniciId);
-            var tumKatilimcilar = _katilimciRepo.GetAll();
-            var tumKullanicilar = _kullaniciService.GetAllUsers();
-           var mesajSorgusu = _mesajRepo.GetAll();
+        var sohbetler = _sohbetService.GetUsersChat(kullaniciId);
+        var tumKatilimcilar = _katilimciRepo.GetAll().ToList();
+        var tumKullanicilar = _kullaniciService.GetAllUsers().ToList();
+        var mesajSorgusu = _mesajRepo.GetAll(); 
 
-            var dinamikSohbetListesi = sohbetler.Select(s => 
-            {
-                string ekranaYazilacakAd = s.grupadi; 
+       var dinamikSohbetListesi = sohbetler
+    .Select(s => SohbetOzetiniHazirla(s, kullaniciId, tumKatilimcilar, tumKullanicilar, mesajSorgusu))
+    .OrderByDescending(x => x.sonMesajTarihi)
+    .ToList();
 
-                if (!s.grupmu) 
-                {
-                    var digerKisininKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid != kullaniciId);
-                    if (digerKisininKaydi != null)
-                    {
-                        var digerKullanici = tumKullanicilar.FirstOrDefault(u => u.Id == digerKisininKaydi.kullaniciid);
-                        if (digerKullanici != null) ekranaYazilacakAd = digerKullanici.AdSoyad; 
-                    }
-                }
-
-                var kullanicininKatilimKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid == kullaniciId);
-                DateTime? sonOkuma = kullanicininKatilimKaydi?.SonOkumaTarihi;
-                // SQL'den sadece son mesajı istiyoruz (LIMIT 1 sorgusu gider).
-                var sonMesaj = mesajSorgusu
-                                .Where(m => m.sohbetid == s.id)
-                                .OrderByDescending(m => m.gondermeTarihi)
-                                .FirstOrDefault();
-                
-                
-                // Okunmamış mesaj sayısını hesaplarken de RAM'e çekmiyoruz,
-                // Count() fonksiyonu doğrudan SQL'de "SELECT COUNT" olarak çalışır!
-                int okunmamisSayisi = mesajSorgusu
-                    .Count(m => m.sohbetid == s.id && m.gonderenid != kullaniciId && (sonOkuma == null || m.gondermeTarihi > sonOkuma));
-                
-                string sonMesajGonderen = "";
-                string onizlemeMetni = "Henüz mesaj yok...";
-
-                if (sonMesaj != null) 
-                {
-                     if (s.grupmu) 
-                     {
-                         sonMesajGonderen = tumKullanicilar.FirstOrDefault(u => u.Id == sonMesaj.gonderenid)?.AdSoyad ?? "";
-                     }
-                     
-                     onizlemeMetni = !string.IsNullOrWhiteSpace(sonMesaj.icerik) 
-                                     ? sonMesaj.icerik 
-                                     : "📁 Dosya gönderildi";
-                }
-
-                return new 
-                {
-                    id = s.id,
-                    grupmu = s.grupmu,
-                    grupadi = ekranaYazilacakAd, 
-                    olusturmaTarihi = s.olusturmaTarihi,
-                    okunmamisMesajSayisi = okunmamisSayisi,
-                    sonMesajIcerik = onizlemeMetni,
-                    sonMesajTarihi = sonMesaj != null ? sonMesaj.gondermeTarihi : s.olusturmaTarihi,
-                    sonMesajGonderenAd = sonMesajGonderen,
-                    sonMesajGonderenId = sonMesaj != null ? sonMesaj.gonderenid : 0 
-                };
-            })
-            .OrderByDescending(x => x.sonMesajTarihi) 
-            .ToList();
-
-            return Ok(dinamikSohbetListesi);
-        }
-        catch (Exception ex)
-        {
-            var gercekHata = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-            return BadRequest($"Hata: {gercekHata}");
-        }
+        return Ok(dinamikSohbetListesi);
     }
+    catch (Exception ex)
+    {
+        var gercekHata = ex.InnerException?.Message ?? ex.Message;
+        return BadRequest($"Hata: {gercekHata}");
+    }
+}
+
+
+private SohbetOzetDto SohbetOzetiniHazirla(Chat s, int kullaniciId, List<ChatMember> tumKatilimcilar, List<User> tumKullanicilar, IEnumerable<Message> mesajSorgusu)
+{
+    string ekranaYazilacakAd = EkrandaGosterilecekAdiBul(s, kullaniciId, tumKatilimcilar, tumKullanicilar);
+    
+    var kullanicininKatilimKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid == kullaniciId);
+    DateTime? sonOkuma = kullanicininKatilimKaydi?.SonOkumaTarihi;
+    
+    var sonMesaj = mesajSorgusu
+        .Where(m => m.sohbetid == s.id)
+        .OrderByDescending(m => m.gondermeTarihi)
+        .FirstOrDefault();
+        
+    int okunmamisSayisi = mesajSorgusu
+        .Count(m => m.sohbetid == s.id && m.gonderenid != kullaniciId && (sonOkuma == null || m.gondermeTarihi > sonOkuma));
+
+    var (onizlemeMetni, sonMesajGonderen) = SonMesajDetaylariniGetir(sonMesaj, s.grupmu, tumKullanicilar);
+
+    return new SohbetOzetDto
+    {
+        id = s.id,
+        grupmu = s.grupmu,
+        grupadi = ekranaYazilacakAd ?? "",
+        olusturmaTarihi = s.olusturmaTarihi,
+        okunmamisMesajSayisi = okunmamisSayisi,
+        sonMesajIcerik = onizlemeMetni,
+        sonMesajTarihi = sonMesaj?.gondermeTarihi ?? s.olusturmaTarihi,
+        sonMesajGonderenAd = sonMesajGonderen,
+        sonMesajGonderenId = sonMesaj?.gonderenid ?? 0 
+    };
+}
+private static string EkrandaGosterilecekAdiBul(Chat s, int kullaniciId, List<ChatMember> tumKatilimcilar, List<User> tumKullanicilar)
+{
+    if (s.grupmu) return s.grupadi ?? "";
+
+    var digerKisininKaydi = tumKatilimcilar.FirstOrDefault(k => k.sohbetid == s.id && k.kullaniciid != kullaniciId);
+    if (digerKisininKaydi == null) return s.grupadi ?? "";
+
+    var digerKullanici = tumKullanicilar.FirstOrDefault(u => u.Id == digerKisininKaydi.kullaniciid);
+    return digerKullanici?.AdSoyad ?? s.grupadi ?? "";
+}
+
+private static(string onizlemeMetni, string gonderenAd) SonMesajDetaylariniGetir(Message? sonMesaj, bool grupmu, List<User> tumKullanicilar)
+{
+    if (sonMesaj == null) return ("Henüz mesaj yok...", "");
+
+    string gonderen = "";
+    if (grupmu)
+    {
+        gonderen = tumKullanicilar.FirstOrDefault(u => u.Id == sonMesaj.gonderenid)?.AdSoyad ?? "";
+    }
+
+    string icerik = !string.IsNullOrWhiteSpace(sonMesaj.icerik) ? sonMesaj.icerik : "📁 Dosya gönderildi";
+    
+    return (icerik, gonderen);
+}
     [HttpGet("{sohbetId}/katilimcilar")]
     public IActionResult GetUsersInChat(int sohbetId)
     {
