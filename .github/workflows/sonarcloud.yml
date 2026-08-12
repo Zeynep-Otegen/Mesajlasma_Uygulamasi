@@ -36,6 +36,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Senin eklediğin token
         run: |
           # Komutun içinde doğrudan değişkenin adını ($SONAR_TOKEN) kullanıyoruz
-          dotnet sonarscanner begin /k:"PROJE_ANAHTARIN" /o:"ORGANIZASYON_ANAHTARIN" /d:sonar.token="$SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io"
+          dotnet sonarscanner begin /k:"Zeynep-Otegen_Mesajlasma_Uygulamasi" /o:"codecreator" /d:sonar.token="$SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io"
           dotnet build
           dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
