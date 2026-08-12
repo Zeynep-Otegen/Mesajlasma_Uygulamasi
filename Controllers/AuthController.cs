@@ -57,10 +57,10 @@ public class AuthController : ControllerBase
             _logRepository.Add(yeniLog);
             var cookieOptions = new CookieOptions
             {
-                HttpOnly = true, // JavaScript'in bu çerezi okumasını %100 engeller (XSS Koruması)
+                HttpOnly = true, // JavaScript'in bu çerezi okumasını engeller (XSS Koruması)
                 Expires = DateTime.Now.AddHours(2), // Token geçerlilik süresiyle aynı olmalı
                 SameSite = SameSiteMode.Lax, // CSRF (Siteler Arası İstek Sahtekarlığı) koruması
-                Secure = false // Projeyi canlıya (HTTPS) aldığında bunu 'true' yapmalısın
+                Secure = true // Sadece HTTPS üzerinden gönderilmesini sağlar
             };
 
             // Token'ı şifreli çerez olarak tarayıcıya yapıştırıyoruz

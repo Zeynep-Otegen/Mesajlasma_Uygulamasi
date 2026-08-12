@@ -29,91 +29,88 @@ function htmlGuvenliYap(metin) {
     
     // 2. SOHBETLERİ GETİR
    
-    async function sohbetleriGetir() {
+    // --- 1. BLOK: SOHBET LİSTESİ GETİRME ---
+async function sohbetleriGetir() {
     try {
-        // ESKİ UZUN TOKEN ÇÖZME İŞLEMLERİNİ TAMAMEN SİLDİK!
-        // Artık ID'yi doğrudan temiz objemizden alıyoruz:
         const kullaniciId = aktifKullanici.id;
+        if (!kullaniciId) return console.error("Kullanıcı ID bulunamadı!");
 
-        if (!kullaniciId) {
-            console.error("Kullanıcı ID bulunamadı!");
+        const response = await fetch(`/api/sohbetler/kullanici/${kullaniciId}`, {
+            method: "GET",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        if (!response.ok) return apiHatasiniYonet(response.status);
+
+        const sohbetler = await response.json();
+        chatList.innerHTML = ""; 
+
+        if (sohbetler.length === 0) {
+            chatList.innerHTML = "<p style='padding: 15px; color: #667781; text-align: center; font-size: 14px;'>Henüz hiç sohbet odası yok.</p>";
             return;
         }
 
-        console.log(`📡 Sohbetler API'sine istek atılıyor... Hedef: /api/sohbetler/kullanici/${kullaniciId}`);
-        
-        const response = await fetch(`/api/sohbetler/kullanici/${kullaniciId}`, {
-            method: "GET",
-            credentials: "include", // SİHİRLİ KELİME: Gizli Cookie'yi sunucuya otomatik yollar
-            headers: {
-                "Content-Type": "application/json"
-                // "Authorization" satırını tamamen kaldırdık!
-            }
+        sohbetler.forEach(sohbet => {
+            const chatItem = sohbetItemOlustur(sohbet, kullaniciId);
+            chatList.appendChild(chatItem);
         });
 
-        if (response.ok) {
-            const sohbetler = await response.json();
-            chatList.innerHTML = ""; 
-
-            if (sohbetler.length === 0) {
-                chatList.innerHTML = "<p style='padding: 15px; color: #667781; text-align: center; font-size: 14px;'>Henüz hiç sohbet odası yok.</p>";
-                return;
-            }
-
-            sohbetler.forEach(sohbet => {
-                const chatItem = document.createElement("div");
-                chatItem.classList.add("chat-item");
-                chatItem.dataset.id = sohbet.id; 
-
-                const badgeHtml = sohbet.okunmamisMesajSayisi > 0 
-                    ? `<div class="unread-badge">${sohbet.okunmamisMesajSayisi}</div>` 
-                    : "";
-
-                let onizleme = sohbet.sonMesajIcerik || "Henüz mesaj yok...";
-
-                if (onizleme !== "Henüz mesaj yok...") {
-                    const gidenMesajId = sohbet.sonMesajGonderenId || sohbet.SonMesajGonderenId || 0;
-                    if (Number(gidenMesajId) === Number(kullaniciId) && Number(gidenMesajId) !== 0) {
-                        onizleme = `Siz: ${onizleme}`;
-                    } else if (sohbet.grupmu && sohbet.sonMesajGonderenAd) {
-                        let kisaAd = sohbet.sonMesajGonderenAd.split(' ')[0];
-                        onizleme = `~${kisaAd}: ${onizleme}`;
-                    }
-                }
-
-                if (onizleme.length > 35) onizleme = onizleme.substring(0, 35) + "...";
-                onizleme = htmlGuvenliYap(onizleme);
-                    
-                chatItem.innerHTML = `
-                    <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
-                    <div class="chat-details">
-                        <div class="chat-title">
-                            <h4>${sohbet.grupadi || sohbet.grupAdi || sohbet.GrupAdi || "İsimsiz Sohbet"}</h4>
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                <span class="time">-</span>
-                                ${badgeHtml}
-                            </div>
-                        </div>
-                        <div class="chat-last-message">
-                            <p>${onizleme}</p>
-                        </div>
-                    </div>
-                `;
-                chatList.appendChild(chatItem);
-            });
-        }
-        else {
-            // YENİ EKLENEN KISIM: Eğer API bizi reddederse sessiz kalmasın!
-            console.error("🚨 API Hatası:", response.status);
-            if (response.status === 401) {
-                alert("Oturumunuzun süresi dolmuş veya Çerez (Cookie) alınamamış. Lütfen tekrar giriş yapın!");
-                localStorage.removeItem("kullanici");
-                window.location.href = "login.html"; // Logine geri at
-            }
-        }
     } catch (error) {
         console.error("🚨 Sunucuya bağlanırken hata oluştu:", error);
     }
+}
+
+// Yardımcı Metot 1: Hata Yönetimi
+function apiHatasiniYonet(status) {
+    console.error("🚨 API Hatası:", status);
+    if (status === 401) {
+        alert("Oturumunuzun süresi dolmuş veya Çerez (Cookie) alınamamış. Lütfen tekrar giriş yapın!");
+        localStorage.removeItem("kullanici");
+        window.location.href = "login.html";
+    }
+}
+
+// Yardımcı Metot 2: Sohbet Kutusunu Çizme
+function sohbetItemOlustur(sohbet, kullaniciId) {
+    const chatItem = document.createElement("div");
+    chatItem.classList.add("chat-item");
+    chatItem.dataset.id = sohbet.id; 
+
+    const badgeHtml = sohbet.okunmamisMesajSayisi > 0 ? `<div class="unread-badge">${sohbet.okunmamisMesajSayisi}</div>` : "";
+    let onizleme = htmlGuvenliYap(sohbetOnizlemeHazirla(sohbet, kullaniciId));
+    const grupAdi = sohbet.grupadi || sohbet.grupAdi || sohbet.GrupAdi || "İsimsiz Sohbet";
+        
+    chatItem.innerHTML = `
+        <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Grup" class="profile-pic">
+        <div class="chat-details">
+            <div class="chat-title">
+                <h4>${grupAdi}</h4>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                    <span class="time">-</span>
+                    ${badgeHtml}
+                </div>
+            </div>
+            <div class="chat-last-message"><p>${onizleme}</p></div>
+        </div>
+    `;
+    return chatItem;
+}
+
+// Yardımcı Metot 3: Mesaj Önizleme Mantığı
+function sohbetOnizlemeHazirla(sohbet, kullaniciId) {
+    let onizleme = sohbet.sonMesajIcerik || "Henüz mesaj yok...";
+    if (onizleme === "Henüz mesaj yok...") return onizleme;
+
+    const gidenMesajId = sohbet.sonMesajGonderenId || sohbet.SonMesajGonderenId || 0;
+    if (Number(gidenMesajId) === Number(kullaniciId) && Number(gidenMesajId) !== 0) {
+        onizleme = `Siz: ${onizleme}`;
+    } else if (sohbet.grupmu && sohbet.sonMesajGonderenAd) {
+        let kisaAd = sohbet.sonMesajGonderenAd.split(' ')[0];
+        onizleme = `~${kisaAd}: ${onizleme}`;
+    }
+
+    return onizleme.length > 35 ? onizleme.substring(0, 35) + "..." : onizleme;
 }
 
     // Çıkış Yapma
@@ -526,112 +523,96 @@ headers: {
 
  
    
-    async function mesajGonder(zorlaOku = false) { 
-        const metin = messageInput.value.trim();
-        
-        console.log("📝 Gönderim tetiklendi! Yazılan Mesaj:", metin, "| Aktif Sohbet ID:", aktifSohbetId);
+    // --- 2. BLOK: MESAJ GÖNDERME ---
+async function mesajGonder(zorlaOku = false) { 
+    const metin = messageInput.value.trim();
+    if (!metin && !seciliDosya) return;
+    
+    if (!aktifSohbetId) return alert("Lütfen mesaj göndermeden önce sol taraftan bir sohbete tıklayın!");
 
-        // Eğer ne metin yazılmış ne de dosya seçilmişse işlemi durdur
-        if (!metin && !seciliDosya) return;
-        
-        if (!aktifSohbetId) {
-            alert("Lütfen mesaj göndermeden önce sol taraftan bir sohbete tıklayın!");
-            return;
-        }
+    messageInput.value = ""; // Kutuyu temizle
+    let yuklenenDosyaYolu = null;
 
-        messageInput.value = ""; // Kutuyu temizle
-        let yuklenenDosyaYolu = null;
-
-        // ==========================================
-        // 1. ADIM: EĞER DOSYA SEÇİLMİŞSE ÖNCE ONU YÜKLE
-        // ==========================================
-        if (seciliDosya) {
-            const formData = new FormData();
-            formData.append("file", seciliDosya);
-            formData.append("sohbetId", aktifSohbetId);
-            formData.append("gonderenId", benimKullaniciIdm);
-
-            try {
-                // DosyalarController'a dosyayı fırlatıyoruz
-                const uploadRes = await fetch("/api/dosyalar/yukle", {
-                    method: "POST",
-                    credentials: "include", 
-                    body: formData // DİKKAT: JSON değil FormData gönderiyoruz
-                });
-                
-                if (uploadRes.ok) {
-                    const sonuc = await uploadRes.json();
-                    yuklenenDosyaYolu = sonuc.dosyaYolu; 
-                    
-                    seciliDosya = null;
-                    const dosyaOnizlemeKutusu = document.getElementById("dosya-onizleme-kutusu");
-                    if (dosyaOnizlemeKutusu) dosyaOnizlemeKutusu.style.display = "none";
-                } else {
-                    // SİHİRLİ DOKUNUŞ: C#'ın BadRequest içine yazdığı o özel mesajı yakalıyoruz!
-                    const gercekHataMesaji = await uploadRes.text();
-                    alert("Uyarı: " + gercekHataMesaji);
-                    
-                    // İşlemi durdur ve dosya seçili kalsın (belki başka dosya seçer)
-                    return; 
-                }
-            } catch (error) {
-                console.error("Dosya yükleme hatası:", error);
-                return;
-            }
-        }
-
-        // ==========================================
-        // 2. ADIM: METNİ VE DOSYA YOLUNU VERİTABANINA KAYDET
-        // ==========================================
-        try {
-            const apiAdresi = "/api/mesajlar"; 
-            const response = await fetch(apiAdresi, {
-                method: "POST",
-                credentials: "include", 
-                    headers: { 
-                        "Content-Type": "application/json" 
-                            },
-                body: JSON.stringify({
-                    sohbetid: parseInt(aktifSohbetId),
-                    icerik: metin || "📁 Dosya gönderildi", // Metin boşsa ekranda bu yazsın
-                    gonderenid: benimKullaniciIdm, 
-                    gondermeTarihi: new Date().toISOString(),
-                    dosyaYolu: yuklenenDosyaYolu // Alınan dosya linkini veritabaanına kaydetme
-                })
-            });
-
-            if (response.ok) {
-                const suAn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
-                
-                
-                ekranaMesajEkle(metin || "📁 Dosya gönderildi", true, suAn, "", yuklenenDosyaYolu);
-
-const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${aktifSohbetId}']`);
-if (solSohbetKutusu) {
-    const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
-    if (sonMesajP) {
-        sonMesajP.innerHTML = `Siz: ${htmlGuvenliYap(metin) || "📁 Dosya"}`;
+    if (seciliDosya) {
+        yuklenenDosyaYolu = await sunucuyaDosyaYukle();
+        if (!yuklenenDosyaYolu) return; // Dosya yüklenemezse işlemi kes
     }
-    // Sohbeti listesinin en üstüne al
-    const chatListContainer = document.getElementById("chat-list");
-    if (chatListContainer) chatListContainer.prepend(solSohbetKutusu);
+
+    await mesajVeritabaninaKaydet(metin, yuklenenDosyaYolu, zorlaOku);
 }
 
-                //Kendi gönderdiğimiz mesajı okuma senaryosu
-                const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
-                if (zorlaOku || (ayarlar && ayarlar.otomatikOku === true)) {
-                    metniSeslendir(metin || "Dosya gönderildi");
-                                          
-                }
-            } else {
-                console.error("🚨 API Hatası:", await response.text());
-                alert("Mesaj gönderilemedi: " + response.status);
-            }
-        } catch (error) {
-            console.error("🚨 Sunucuya ulaşılamadı:", error);
+// Yardımcı Metot 1: Dosya Yükleme
+async function sunucuyaDosyaYukle() {
+    const formData = new FormData();
+    formData.append("file", seciliDosya);
+    formData.append("sohbetId", aktifSohbetId);
+    formData.append("gonderenId", benimKullaniciIdm);
+
+    try {
+        const uploadRes = await fetch("/api/dosyalar/yukle", {
+            method: "POST",
+            credentials: "include", 
+            body: formData
+        });
+        
+        if (uploadRes.ok) {
+            const sonuc = await uploadRes.json();
+            seciliDosya = null;
+            document.getElementById("dosya-onizleme-kutusu")?.setAttribute("style", "display: none;");
+            return sonuc.dosyaYolu; 
+        } else {
+            alert("Uyarı: " + await uploadRes.text());
+            return null;
         }
+    } catch (error) {
+        console.error("Dosya yükleme hatası:", error);
+        return null;
     }
+}
+
+// Yardımcı Metot 2: Mesajı Kaydetme ve Arayüzü Güncelleme
+async function mesajVeritabaninaKaydet(metin, dosyaYolu, zorlaOku) {
+    try {
+        const response = await fetch("/api/mesajlar", {
+            method: "POST",
+            credentials: "include", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sohbetid: parseInt(aktifSohbetId),
+                icerik: metin || "📁 Dosya gönderildi",
+                gonderenid: benimKullaniciIdm, 
+                gondermeTarihi: new Date().toISOString(),
+                dosyaYolu: dosyaYolu
+            })
+        });
+
+        if (response.ok) {
+            mesajGonderimSonrasiUI(metin, dosyaYolu, zorlaOku);
+        } else {
+            alert("Mesaj gönderilemedi: " + response.status);
+        }
+    } catch (error) {
+        console.error("🚨 Sunucuya ulaşılamadı:", error);
+    }
+}
+
+// Yardımcı Metot 3: Arayüz ve TTS Tetikleme
+function mesajGonderimSonrasiUI(metin, dosyaYolu, zorlaOku) {
+    const suAn = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    ekranaMesajEkle(metin || "📁 Dosya gönderildi", true, suAn, "", dosyaYolu);
+
+    const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${aktifSohbetId}']`);
+    if (solSohbetKutusu) {
+        const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
+        if (sonMesajP) sonMesajP.innerHTML = `Siz: ${htmlGuvenliYap(metin) || "📁 Dosya"}`;
+        document.getElementById("chat-list")?.prepend(solSohbetKutusu);
+    }
+
+    const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
+    if (zorlaOku || (ayarlar && ayarlar.otomatikOku === true)) {
+        metniSeslendir(metin || "Dosya gönderildi");
+    }
+}
 
 
     // =========================================================
@@ -1085,13 +1066,12 @@ headers: {
     // =========================================================
 
     let aramaZamanlayici; 
-    const solAramaInput = document.getElementById("left-search-input"); // Kendi arama input id'ni buraya yaz!
+    const solAramaInput = document.getElementById("left-search-input"); // Kendi arama input id
 
-    // Tıklanabilir olması için fonksiyonları globale ekliyoruz
-    // ARAMA SONUÇLARINDAN BİR KİŞİYE TIKLANDIĞINDA ÇALIŞACAK ANA FONKSİYON
+  
     window.kisiyleSohbetBaslat = async function(hedefKullaniciId) {
         try {
-            // C# API'sine hedef kişinin ID'sini gönderiyoruz (Varsa getir, yoksa oluştur)
+            // C# API'sine hedef kişinin ID'sini gönderiyoruz 
             const response = await fetch(`/api/sohbetler/birebir/${hedefKullaniciId}`, {
                 method: "POST",
                credentials: "include", 
@@ -1112,8 +1092,7 @@ headers: {
                     // Eğer sistem yepyeni bir sohbet oluşturduysa, sol menünün güncellenmesi için sayfayı yenilemek en sağlıklısı
                     window.location.reload(); 
                 } else {
-                    // ZATEN SOHBET VARSA: Hiç yenilemeden doğrudan hedef sohbetin içine pürüzsüz geçiş yap!
-                    // (Sohbet adını sol menüden çalarak animasyonu hızlandırıyoruz)
+                    
                     const sohbetKutusu = document.querySelector(`.chat-item[data-id='${data.sohbetId}'] h4`);
                     const sohbetAdi = sohbetKutusu ? sohbetKutusu.textContent : "Sohbet";
                     
@@ -1168,73 +1147,82 @@ headers: {
     }
 
    
-    function aramaSonuclariniEkranaCiz(veri, arananKelime, kapsayici) {
-        kapsayici.innerHTML = "";
+    // --- 3. BLOK: ARAMA SONUÇLARINI ÇİZME ---
+function aramaSonuclariniEkranaCiz(veri, arananKelime, kapsayici) {
+    kapsayici.innerHTML = "";
+    const guvenliKelime = arananKelime.replace(/'/g, "\\'");
+    let html = "";
 
-        const regex = new RegExp(`(${arananKelime})`, "gi");
-        const vurgula = (metin) => metin.replace(regex, `<span class="search-highlight">$1</span>`);
+    html += sohbetSonuclariniOlustur(veri.sohbetler, arananKelime);
+    html += kisiSonuclariniOlustur(veri.kisiler, arananKelime);
+    html += mesajSonuclariniOlustur(veri.mesajlar, arananKelime, guvenliKelime);
 
-        // Tıklamalarda tırnak (') hatası çıkmaması için güvenli formata çeviriyoruz
-        const guvenliKelime = arananKelime.replace(/'/g, "\\'");
-
-        let html = "";
-
-        // 1. SOHBETLER
-        if (veri.sohbetler && veri.sohbetler.length > 0) {
-            html += `<div class="search-section-label">Sohbetler</div>`;
-            veri.sohbetler.forEach(s => {
-                html += `
-                <div class="search-result-item type-sohbet" onclick="window.sohbetiAc(${s.id}, '${s.ad.replace(/'/g, "\\'")}')">
-                    <div class="search-result-icon"><i class="fas fa-users"></i></div>
-                    <div class="search-result-name">${vurgula(s.ad)}</div>
-                </div>`;
-            });
-        }
-
-        // 2. KİŞİLER
-        if (veri.kisiler && veri.kisiler.length > 0) {
-            html += `<div class="search-section-label">Kişiler</div>`;
-            veri.kisiler.forEach(k => {
-                html += `
-                <div class="search-result-item type-kisi" onclick="window.kisiyleSohbetBaslat(${k.id})">
-                    <div class="search-result-icon"><i class="fas fa-user"></i></div>
-                    <div class="search-result-name">${vurgula(k.ad)}</div>
-                </div>`;
-            });
-        }
-
-        // 3. MESAJLAR (SOHBET ADI DAHİL)
-        if (veri.mesajlar && veri.mesajlar.length > 0) {
-            html += `<div class="search-section-label">Mesajlar</div>`;
-            veri.mesajlar.forEach(m => {
-                let kisaIcerik = m.icerik.length > 45 ? m.icerik.substring(0, 45) + "..." : m.icerik;
-
-                // SİHİRLİ DOKUNUŞ: C#'ı yormadan sol menüde zaten var olan sohbet adını JS ile anında çalıyoruz :)
-                const sohbetKutusu = document.querySelector(`.chat-list .chat-item[data-id='${m.sohbetId}'] h4`);
-                const sohbetAdi = sohbetKutusu ? sohbetKutusu.textContent : "Sohbet";
-
-                html += `
-                <div class="search-result-item type-mesaj" onclick="window.hedefMesajaGit(${m.sohbetId}, ${m.id}, '${guvenliKelime}')">
-                    <div style="display:flex; align-items:center; gap:10px; width:100%;">
-                        <div class="search-result-icon"><i class="fas fa-comment-dots"></i></div>
-                        <span class="search-result-msg-source"><i class="fas fa-thumbtack"></i>${sohbetAdi}</span>
-                    </div>
-                    <span class="search-result-msg-snippet">${vurgula(kisaIcerik)}</span>
-                </div>`;
-            });
-        }
-
-        if (html === "") {
-            html = `
-            <div class="search-empty-state">
-                <i class="fas fa-magnifying-glass"></i>
-                <span><strong>"${arananKelime}"</strong> için sonuç bulunamadı.</span>
-            </div>`;
-        }
-        kapsayici.innerHTML = html;
+    if (html === "") {
+        html = `
+        <div class="search-empty-state">
+            <i class="fas fa-magnifying-glass"></i>
+            <span><strong>"${arananKelime}"</strong> için sonuç bulunamadı.</span>
+        </div>`;
     }
+    kapsayici.innerHTML = html;
+}
 
-    // GÜNCELLENDİ: SADECE KELİMEYİ SALİSELİK BOYAYAN ANİMASYON
+// Yardımcı Metot 1: Kelime Vurgulama
+function kelimeVurgula(metin, arananKelime) {
+    const regex = new RegExp(`(${arananKelime})`, "gi");
+    return metin.replace(regex, `<span class="search-highlight">$1</span>`);
+}
+
+// Yardımcı Metot 2: Sohbet Listesi HTML
+function sohbetSonuclariniOlustur(sohbetler, arananKelime) {
+    if (!sohbetler || sohbetler.length === 0) return "";
+    let html = `<div class="search-section-label">Sohbetler</div>`;
+    sohbetler.forEach(s => {
+        html += `
+        <div class="search-result-item type-sohbet" onclick="window.sohbetiAc(${s.id}, '${s.ad.replace(/'/g, "\\'")}')">
+            <div class="search-result-icon"><i class="fas fa-users"></i></div>
+            <div class="search-result-name">${kelimeVurgula(s.ad, arananKelime)}</div>
+        </div>`;
+    });
+    return html;
+}
+
+// Yardımcı Metot 3: Kişi Listesi HTML
+function kisiSonuclariniOlustur(kisiler, arananKelime) {
+    if (!kisiler || kisiler.length === 0) return "";
+    let html = `<div class="search-section-label">Kişiler</div>`;
+    kisiler.forEach(k => {
+        html += `
+        <div class="search-result-item type-kisi" onclick="window.kisiyleSohbetBaslat(${k.id})">
+            <div class="search-result-icon"><i class="fas fa-user"></i></div>
+            <div class="search-result-name">${kelimeVurgula(k.ad, arananKelime)}</div>
+        </div>`;
+    });
+    return html;
+}
+
+// Yardımcı Metot 4: Mesaj Listesi HTML
+function mesajSonuclariniOlustur(mesajlar, arananKelime, guvenliKelime) {
+    if (!mesajlar || mesajlar.length === 0) return "";
+    let html = `<div class="search-section-label">Mesajlar</div>`;
+    mesajlar.forEach(m => {
+        let kisaIcerik = m.icerik.length > 45 ? m.icerik.substring(0, 45) + "..." : m.icerik;
+        const sohbetKutusu = document.querySelector(`.chat-list .chat-item[data-id='${m.sohbetId}'] h4`);
+        const sohbetAdi = sohbetKutusu ? sohbetKutusu.textContent : "Sohbet";
+
+        html += `
+        <div class="search-result-item type-mesaj" onclick="window.hedefMesajaGit(${m.sohbetId}, ${m.id}, '${guvenliKelime}')">
+            <div style="display:flex; align-items:center; gap:10px; width:100%;">
+                <div class="search-result-icon"><i class="fas fa-comment-dots"></i></div>
+                <span class="search-result-msg-source"><i class="fas fa-thumbtack"></i>${sohbetAdi}</span>
+            </div>
+            <span class="search-result-msg-snippet">${kelimeVurgula(kisaIcerik, arananKelime)}</span>
+        </div>`;
+    });
+    return html;
+}
+
+    //KELİMEYİ SALİSELİK BOYAYAN ANİMASYON
     window.hedefMesajaGit = async function(sohbetId, mesajId, arananKelime) {
         await window.sohbetiAc(sohbetId); 
         
