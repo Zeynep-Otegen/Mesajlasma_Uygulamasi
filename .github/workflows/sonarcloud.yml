@@ -35,10 +35,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Bu token GitHub tarafından otomatik sağlanır
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Senin eklediğin token
         run: |
-          # DİKKAT: /k ve /o parametrelerine SonarCloud'daki proje anahtarlarını yaz!
-          dotnet sonarscanner begin /k:"Zeynep-Otegen_Mesajlasma_Uygulamasi" /o:"codecreator" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
-          
-          # Projeni derle (Testlerini de buraya dahil edebilirsin)
+          # Komutun içinde doğrudan değişkenin adını ($SONAR_TOKEN) kullanıyoruz
+          dotnet sonarscanner begin /k:"PROJE_ANAHTARIN" /o:"ORGANIZASYON_ANAHTARIN" /d:sonar.token="$SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io"
           dotnet build
-          
-          dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
