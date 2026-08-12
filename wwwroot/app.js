@@ -360,104 +360,106 @@ headers: {
         }
     }
 
-    async function mesajlariGetir(sohbetId, yukariKaydirmaMi = false) {
-        // Eğer zaten yükleniyorsa veya geçmiş bittiyse işlemi durdur
-        if (yukariKaydirmaMi && (mesajlarYukleniyor || !dahaFazlaMesajVarMi)) return;
+    // --- 1. BLOK: MESAJ GEÇMİŞİNİ GETİRME ---
+async function mesajlariGetir(sohbetId, yukariKaydirmaMi = false) {
+    if (yukariKaydirmaMi && (mesajlarYukleniyor || !dahaFazlaMesajVarMi)) return;
+    mesajlarYukleniyor = true;
 
-            mesajlarYukleniyor = true;
+    mesajYuklemeArayuzunuHazirla(yukariKaydirmaMi);
 
-        if (!yukariKaydirmaMi) {
-            // Sohbete sol menüden ilk defa tıklandıysa sayfayı sıfırla
-            messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'><i class='fas fa-spinner fa-spin'></i> Yükleniyor...</p>";
-            suAnkiSayfa = 1;
-            dahaFazlaMesajVarMi = true;
-        } else {
-            // Kullanıcı yukarı kaydırdıysa (geçmişi istiyorsa) geçici bir 'Yükleniyor' yazısı koy
-            const loader = document.createElement("div");
-            loader.id = "eski-mesaj-loader";
-            loader.innerHTML = "<p style='text-align:center; color:#888; font-size:12px; margin:5px;'>Eski mesajlar yükleniyor...</p>";
-            messagesContainer.prepend(loader);
-        }
-        
-        try {
-            const limit = 20; // Her seferinde 20 mesaj çekeceğiz
-            console.log(`🔄 [SAYFALAMA] Sohbet ID: ${sohbetId} | İstek Atılan Sayfa: ${suAnkiSayfa} | Beklenen Mesaj: ${limit}`);
-            const response = await fetch(`/api/mesajlar/sohbet/${sohbetId}?sayfa=${suAnkiSayfa}&limit=${limit}`, {
-                credentials: "include", 
-                headers: { "Content-Type": "application/json" }
-            });
+    try {
+        const limit = 20;
+        const response = await fetch(`/api/mesajlar/sohbet/${sohbetId}?sayfa=${suAnkiSayfa}&limit=${limit}`, {
+            credentials: "include",
+            headers: { "Content-Type": "application/json" }
+        });
 
-            if (response.ok) {
+        if (response.ok) {
             const mesajlar = await response.json();
-            console.log(`✅ [BAŞARILI] Veritabanından ${mesajlar.length} adet mesaj çekildi. (Sayfa: ${suAnkiSayfa})`);
-            
-            if (!yukariKaydirmaMi) {
-                messagesContainer.innerHTML = ""; 
-            } else {
-                document.getElementById("eski-mesaj-loader")?.remove();
-            }
-
-            if (mesajlar.length === 0 && !yukariKaydirmaMi) {
-                messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Burada henüz hiç mesaj yok. İlk mesajı sen gönder!</p>";
-                mesajlarYukleniyor = false;
-                return;
-            }
-
-            // 1. DÜZELTME: Eski koddaki "Sohbetin Başı" HTML oluşturma kısmını buradan SİLDİK! 
-            // Sadece geçmişin bittiğini değişkene söylüyoruz.
-            if (mesajlar.length < limit) {
-                dahaFazlaMesajVarMi = false;
-            }
-
-            const eskiScrollYuksekligi = messagesContainer.scrollHeight;
-
-            if (yukariKaydirmaMi) {
-                mesajlar.reverse();
-            }
-
-            mesajlar.forEach(m => {
-                const gonderenId = m.gonderenid || m.Gonderenid || m.kullaniciid;
-                const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
-                const metin = m.icerik || m.Icerik || m.mesaj || m.MesajMetni;
-                
-                const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
-                let saatString = "";
-                if (hamTarih) {
-                    const tarihObje = new Date(hamTarih);
-                    saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                }
-                
-                const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
-                const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
-                
-                ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id, yukariKaydirmaMi);
-            });
-
-            
-            if (!dahaFazlaMesajVarMi && !document.getElementById("sohbet-basi-etiketi")) {
-                const sohbetBasi = document.createElement("p");
-                sohbetBasi.id = "sohbet-basi-etiketi"; // Çift eklemeyi önlemek için ID verdik
-                sohbetBasi.style = "text-align:center; color:#ccc; font-size:11px; margin: 15px 0;";
-                sohbetBasi.textContent = "--- Sohbetin Başı ---";
-                
-                
-                messagesContainer.prepend(sohbetBasi); 
-            }
-
-            // Scroll Bar Ayarlaması
-            if (yukariKaydirmaMi) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight - eskiScrollYuksekligi;
-            } else {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-
-            suAnkiSayfa++; 
+            await mesajListesiniEkranaBas(mesajlar, yukariKaydirmaMi, limit);
         }
-        } catch (error) {
-            console.error("Mesajlar çekilirken hata:", error);
-        }
-        mesajlarYukleniyor = false; // Kilidi aç
+    } catch (error) {
+        console.error("Mesajlar çekilirken hata:", error);
     }
+    mesajlarYukleniyor = false;
+}
+
+// Yardımcı 1: Yükleme Arayüzü (Loader)
+function mesajYuklemeArayuzunuHazirla(yukariKaydirmaMi) {
+    if (!yukariKaydirmaMi) {
+        messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'><i class='fas fa-spinner fa-spin'></i> Yükleniyor...</p>";
+        suAnkiSayfa = 1;
+        dahaFazlaMesajVarMi = true;
+    } else {
+        const loader = document.createElement("div");
+        loader.id = "eski-mesaj-loader";
+        loader.innerHTML = "<p style='text-align:center; color:#888; font-size:12px; margin:5px;'>Eski mesajlar yükleniyor...</p>";
+        messagesContainer.prepend(loader);
+    }
+}
+
+// Yardımcı 2: Gelen Mesajları Ekrana Basma
+async function mesajListesiniEkranaBas(mesajlar, yukariKaydirmaMi, limit) {
+    if (!yukariKaydirmaMi) {
+        messagesContainer.innerHTML = "";
+    } else {
+        document.getElementById("eski-mesaj-loader")?.remove();
+    }
+
+    if (mesajlar.length === 0 && !yukariKaydirmaMi) {
+        messagesContainer.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Burada henüz hiç mesaj yok. İlk mesajı sen gönder!</p>";
+        return;
+    }
+
+    if (mesajlar.length < limit) dahaFazlaMesajVarMi = false;
+
+    const eskiScrollYuksekligi = messagesContainer.scrollHeight;
+    if (yukariKaydirmaMi) mesajlar.reverse();
+
+    mesajlar.forEach(m => islenmisMesajiEkle(m, yukariKaydirmaMi));
+
+    sohbetBasiEtiketiniEkle();
+    scrollKonumunuAyarla(yukariKaydirmaMi, eskiScrollYuksekligi);
+    suAnkiSayfa++;
+}
+
+// Yardımcı 3: Tekil Mesaj İşleme
+function islenmisMesajiEkle(m, yukariKaydirmaMi) {
+    const gonderenId = m.gonderenid || m.Gonderenid || m.kullaniciid;
+    const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
+    const metin = m.icerik || m.Icerik || m.mesaj || m.MesajMetni;
+    
+    const hamTarih = m.gondermeTarihi || m.GondermeTarihi || m.gonderilmetarihi;
+    let saatString = "";
+    if (hamTarih) {
+        saatString = new Date(hamTarih).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    const gonderenKisiAdi = m.gonderenAd || m.GonderenAd || m.KullaniciAdi || "";
+    const dosyaLink = m.dosyaYolu || m.DosyaYolu || null;
+    
+    ekranaMesajEkle(metin, benMiyim, saatString, gonderenKisiAdi, dosyaLink, m.id || m.Id, yukariKaydirmaMi);
+}
+
+// Yardımcı 4: Sohbetin Başı Etiketi
+function sohbetBasiEtiketiniEkle() {
+    if (!dahaFazlaMesajVarMi && !document.getElementById("sohbet-basi-etiketi")) {
+        const sohbetBasi = document.createElement("p");
+        sohbetBasi.id = "sohbet-basi-etiketi";
+        sohbetBasi.style = "text-align:center; color:#ccc; font-size:11px; margin: 15px 0;";
+        sohbetBasi.textContent = "--- Sohbetin Başı ---";
+        messagesContainer.prepend(sohbetBasi); 
+    }
+}
+
+// Yardımcı 5: Scroll (Kaydırma) Çubuğunu Ayarlama
+function scrollKonumunuAyarla(yukariKaydirmaMi, eskiScrollYuksekligi) {
+    if (yukariKaydirmaMi) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight - eskiScrollYuksekligi;
+    } else {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+}
 
     // SCROLL OLAYINI DİNLEYEN TETİKLEYİCİ (YENİ)
     messagesContainer.addEventListener("scroll", () => {
@@ -625,97 +627,75 @@ const connection = new signalR.HubConnectionBuilder()
     .build();
         
 
-    connection.on("YeniMesajGeldi", (mesaj) => {
+  
+connection.on("YeniMesajGeldi", (mesaj) => {
     const gonderenId = mesaj.gonderenid || mesaj.Gonderenid || mesaj.kullaniciid;
     const benMiyim = (Number(gonderenId) === Number(benimKullaniciIdm));
+    if (benMiyim) return; // Kendi mesajlarımızı zaten arayüzden manuel ekliyoruz
 
-    const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
-    const guvenliMetin = htmlGuvenliYap(metin);
-    // DİREKT TARİHİ ALIYORUZ
-    const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
-    let saatString = "";
+    const mesajDetay = mesajDetaylariniCikar(mesaj);
 
-    if (hamTarih) {
-        const tarihObje = new Date(hamTarih);
-        saatString = tarihObje.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    if (mesaj.sohbetid == aktifSohbetId) {
+        aktifSohbetMesajiniYonet(mesaj.sohbetid, mesajDetay);
     } else {
-        saatString = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-    }
-        
-    const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
-    const dosyaLink = mesaj.dosyaYolu || mesaj.DosyaYolu || null;
-
-    if (mesaj.sohbetid == aktifSohbetId && !benMiyim) {
-        //KULLANICI ŞU AN MESAJIN GELDİĞİ SOHBETİN İÇİNDE
-        ekranaMesajEkle(metin, false, saatString, gonderenKisiAdi, dosyaLink);
-        
-        // Mesajı anında gördüğü için arka planda saati hemen güncelleyelim ki rozet oluşmasın
-        fetch(`/api/sohbetler/${aktifSohbetId}/okundu-isaretle`, {
-            method: "POST",
-            credentials: "include", 
-headers: { 
-    "Content-Type": "application/json" 
-}
-        }).catch(err => console.error(err));
-
-        // Sesli okuma açıksa oku
-        const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
-        if (ayarlar && ayarlar.otomatikOku === true) {
-            metniSeslendir(metin);
-        }
-
-        // ===================================
-        // SOL MENÜYÜ GÜNCELLE VE ÜSTE TAŞI
-        // ===================================
-        const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${mesaj.sohbetid}']`);
-        if (solSohbetKutusu) {
-            const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
-            if (sonMesajP) {
-                let kisaAd = gonderenKisiAdi.split(' ')[0];
-                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${guvenliMetin || "📁 Dosya"}`;
-            }
-            
-            const chatListContainer = document.getElementById("chat-list");
-            if (chatListContainer) {
-                chatListContainer.prepend(solSohbetKutusu);
-            }
-        }
-        // =========================================================
-    } 
-    else if (!benMiyim) {
-        //KULLANICI BAŞKA BİR SOHBETTE VEYA BEKLEMEDE (DİNAMİK ROZET)
-        const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${mesaj.sohbetid}']`);
-        
-        if (solSohbetKutusu) {
-            const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
-            if (sonMesajP) {
-                //Gönderen kişinin sadece ilk ismini al
-                let kisaAd = gonderenKisiAdi.split(' ')[0];
-                
-                // F5'teki görünümün aynısını dinamik olarak basıyoruz. 
-                // Okunmamış olduğunu vurgulamak için markanın rengini ve kalın fontu koruduk.
-                sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${guvenliMetin || "📁 Dosya"}`;
-            }
-
-            // Rozet kontrolü ve sayım artırma
-            let rozet = solSohbetKutusu.querySelector(".unread-badge");
-            if (rozet) {
-                let mevcutSayi = parseInt(rozet.textContent) || 0;
-                rozet.textContent = mevcutSayi + 1;
-            } else {
-                const titleDiv = solSohbetKutusu.querySelector(".chat-title > div");
-                if (titleDiv) {
-                    titleDiv.innerHTML += `<div class="unread-badge">1</div>`;
-                }
-            }
-
-            const chatListContainer = document.getElementById("chat-list");
-            if (chatListContainer) {
-                chatListContainer.prepend(solSohbetKutusu);
-            }
-        }
+        solMenuyuGuncelle(mesaj.sohbetid, mesajDetay.gonderenKisiAdi, mesajDetay.guvenliMetin, true);
     }
 });
+
+// Yardımcı 1: Gelen Mesajın Verilerini Ayrıştırma
+function mesajDetaylariniCikar(mesaj) {
+    const metin = mesaj.icerik || mesaj.Icerik || mesaj.mesaj;
+    const guvenliMetin = htmlGuvenliYap(metin);
+    const hamTarih = mesaj.gondermeTarihi || mesaj.GondermeTarihi;
+    const saatString = hamTarih ? new Date(hamTarih).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const gonderenKisiAdi = mesaj.gonderenAd || mesaj.GonderenAd || "Bilinmeyen";
+    const dosyaLink = mesaj.dosyaYolu || mesaj.DosyaYolu || null;
+    
+    return { metin, guvenliMetin, saatString, gonderenKisiAdi, dosyaLink };
+}
+
+// Yardımcı 2: Kullanıcı Şu An O Sohbetin İçindeyse
+function aktifSohbetMesajiniYonet(sohbetId, detay) {
+    ekranaMesajEkle(detay.metin, false, detay.saatString, detay.gonderenKisiAdi, detay.dosyaLink);
+    
+    // Okundu bilgisi gönder
+    fetch(`/api/sohbetler/${sohbetId}/okundu-isaretle`, { 
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" } 
+    }).catch(err => console.error(err));
+
+    const ayarlar = JSON.parse(localStorage.getItem("ttsAyarlari"));
+    if (ayarlar?.otomatikOku === true) metniSeslendir(detay.metin);
+
+    solMenuyuGuncelle(sohbetId, detay.gonderenKisiAdi, detay.guvenliMetin, false);
+}
+
+// Yardımcı 3: Sol Menüyü ve Rozeti (Badge) Güncelleme
+function solMenuyuGuncelle(sohbetId, gonderenKisiAdi, guvenliMetin, rozetArtir) {
+    const solSohbetKutusu = document.querySelector(`.chat-item[data-id='${sohbetId}']`);
+    if (!solSohbetKutusu) return;
+
+    const sonMesajP = solSohbetKutusu.querySelector(".chat-last-message p");
+    if (sonMesajP) {
+        const kisaAd = gonderenKisiAdi.split(' ')[0];
+        sonMesajP.innerHTML = `<span style="color:var(--brand); font-weight:600;">~${kisaAd}:</span> ${guvenliMetin || "📁 Dosya"}`;
+    }
+
+    if (rozetArtir) rozetEtiketiniGuncelle(solSohbetKutusu);
+
+    // Güncellenen sohbeti listenin en üstüne taşı
+    document.getElementById("chat-list")?.prepend(solSohbetKutusu);
+}
+
+// Yardımcı 4: Okunmamış Mesaj Balonu (Badge) Sayacı
+function rozetEtiketiniGuncelle(solSohbetKutusu) {
+    let rozet = solSohbetKutusu.querySelector(".unread-badge");
+    if (rozet) {
+        rozet.textContent = (parseInt(rozet.textContent) || 0) + 1;
+    } else {
+        const titleDiv = solSohbetKutusu.querySelector(".chat-title > div");
+        if (titleDiv) titleDiv.innerHTML += `<div class="unread-badge">1</div>`;
+    }
+}
 connection.on("KullaniciDurumDegisti", (kullaniciId, isOnline) => {
         
         const kisiIndex = aktifKisilerVerisi.findIndex(k => k.id === kullaniciId || k.Id === kullaniciId);
